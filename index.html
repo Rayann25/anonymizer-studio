@@ -760,7 +760,7 @@
         </div>
       </div>
 
-      <!-- Navigation en 4 Étapes Structurées du Système d'Apprentissage -->
+      <!-- Navigation en 5 Étapes Structurées du Système d'Apprentissage & Gestion -->
       <div class="glass p-1.5 rounded-xl border border-slate-800 flex items-center gap-1.5 overflow-x-auto text-xs">
         <button id="btn-lab-subtab-test" onclick="switchLabSubtab('test')" class="px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 bg-purple-600 text-white shadow">
           <i class="fa-solid fa-magnifying-glass"></i> 1. Tester & Inférence
@@ -774,6 +774,9 @@
         <button id="btn-lab-subtab-compare" onclick="switchLabSubtab('compare')" class="px-4 py-2 rounded-lg font-semibold text-slate-400 hover:text-white transition-all flex items-center gap-2">
           <i class="fa-solid fa-scale-balanced text-emerald-400"></i> 4. Comparer (Benchmark Impartial)
         </button>
+        <button id="btn-lab-subtab-docs" onclick="switchLabSubtab('docs')" class="px-4 py-2 rounded-lg font-semibold text-slate-400 hover:text-white transition-all flex items-center gap-2">
+          <i class="fa-solid fa-folder-open text-amber-400"></i> 5. Gérer les Documents <span id="lab-docs-count-badge" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-amber-300 text-[10px] font-mono border border-slate-700">7</span>
+        </button>
       </div>
 
       <!-- ================================================================= -->
@@ -781,7 +784,7 @@
       <!-- ================================================================= -->
       <div id="lab-section-test" class="space-y-4">
         <div class="glass p-4 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4">
-          <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex items-center gap-2.5 flex-wrap">
             <label class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs px-3.5 py-2 rounded-lg font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow">
               <i class="fa-solid fa-cloud-arrow-up text-white"></i> Importer un document inédit (PDF / Image)
               <input type="file" id="vision-lab-file-input" accept=".pdf,image/*" class="hidden" onchange="handleVisionLabFileUpload(event)">
@@ -789,7 +792,7 @@
 
             <span class="text-slate-600">|</span>
 
-            <span class="text-xs font-semibold text-slate-300">Ou tester un document de référence :</span>
+            <span class="text-xs font-semibold text-slate-300">Document :</span>
             <select id="vision-lab-doc-select" onchange="loadVisionLabDocument(this.value)" class="bg-slate-900 border border-slate-700 text-xs px-3 py-1.5 rounded-lg text-slate-200 outline-none focus:border-indigo-500 max-w-[320px]">
               <option value="contract_sig">Test #01 : Contrat Alpha SAS (1 Signature)</option>
               <option value="contract_sig_paraphe">Test #02 : Accord-Cadre (1 Signature + 1 Paraphe en marge)</option>
@@ -800,8 +803,22 @@
               <option value="yolo_test_pdf">Test #07 : Dossier de Test YOLO (signature_detection_yolo_test.pdf - 3 Signatures)</option>
             </select>
 
+            <!-- Bouton Réinitialiser l'analyse (Exigence URGENTE #2) -->
+            <button onclick="resetVisionLabAnalysis()" id="btn-reset-analysis" class="bg-slate-800 hover:bg-slate-700 text-rose-300 border border-rose-500/40 text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5" title="Effacer les prédictions et réinitialiser une analyse propre">
+              <i class="fa-solid fa-arrows-rotate text-rose-400"></i> Réinitialiser l'analyse
+            </button>
+
+            <!-- Bouton Supprimer le document sélectionné (Exigence URGENTE #1) -->
+            <button onclick="deleteVisionLabDoc(visionLabState.currentDocKey)" id="btn-delete-current-doc" class="bg-slate-800 hover:bg-red-950/60 text-red-400 border border-red-500/30 text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5" title="Supprimer ce document du laboratoire">
+              <i class="fa-solid fa-trash-can text-red-400"></i> Supprimer
+            </button>
+
             <button onclick="freezeV1Reference()" id="btn-freeze-ref" class="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5">
-              <i class="fa-solid fa-snowflake text-amber-400"></i> Geler comme Référence v1
+              <i class="fa-solid fa-snowflake text-amber-400"></i> Geler Réf v1
+            </button>
+
+            <button onclick="switchLabSubtab('docs')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs px-2.5 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5" title="Ouvrir le registre de gestion des documents">
+              <i class="fa-solid fa-table-list text-amber-400"></i> Gérer docs (<span id="quick-docs-count">7</span>)
             </button>
           </div>
 
@@ -1262,6 +1279,62 @@
               </div>
               <p class="text-[11px] text-slate-400">Pages de tableaux ou de textes sans signature : chute drastique des fausses alertes.</p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- SECTION 5 : GÉRER LES DOCUMENTS DU LABORATOIRE                     -->
+      <!-- ================================================================= -->
+      <div id="lab-section-docs" class="hidden space-y-4">
+        <!-- Barre de Contrôle et d'Actions Globales -->
+        <div class="glass p-4 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-folder-open text-amber-400"></i> Registre & Gestion des Documents du Laboratoire
+              <span id="docs-table-total-badge" class="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">7 Documents</span>
+            </h3>
+            <p class="text-[11px] text-slate-400 mt-0.5">
+              Consultez, sélectionnez et supprimez les documents enregistrés. La suppression retire instantanément annotations et prédictions sans références orphelines.
+            </p>
+          </div>
+
+          <div class="flex items-center gap-2 flex-wrap">
+            <button onclick="document.getElementById('vision-lab-file-input').click()" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs px-3.5 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 shadow">
+              <i class="fa-solid fa-plus"></i> Importer
+            </button>
+            <button id="btn-delete-selected-docs" onclick="deleteSelectedVisionLabDocs()" disabled class="bg-slate-800 text-slate-500 border border-slate-700 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-not-allowed">
+              <i class="fa-solid fa-trash-can"></i> Supprimer la sélection (<span id="selected-docs-count">0</span>)
+            </button>
+            <button onclick="deleteAllVisionLabDocs()" class="bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-500/40 text-xs px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5">
+              <i class="fa-solid fa-trash-arrow-up"></i> Tout supprimer
+            </button>
+            <button onclick="restoreDefaultVisionLabDocs()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5" title="Restaurer les 7 documents de référence du benchmark">
+              <i class="fa-solid fa-rotate-left text-cyan-400"></i> Rétablir par défaut
+            </button>
+          </div>
+        </div>
+
+        <!-- Tableau des Documents du Laboratoire -->
+        <div class="glass rounded-xl border border-slate-800 overflow-hidden shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-900/90 border-b border-slate-800 text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                  <th class="p-3 w-10 text-center">
+                    <input type="checkbox" id="docs-select-all" onchange="toggleSelectAllDocs(this.checked)" class="accent-purple-500 cursor-pointer" title="Sélectionner tout">
+                  </th>
+                  <th class="p-3">Document / Identifiant</th>
+                  <th class="p-3">Date d'Ajout</th>
+                  <th class="p-3">Format & Type</th>
+                  <th class="p-3">Statut & Annotations</th>
+                  <th class="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="vision-lab-docs-table-body" class="divide-y divide-slate-800/60 font-medium">
+                <!-- Rempli dynamiquement -->
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -3260,6 +3333,7 @@
         id: "DOC_002",
         title: "Contrat de Prestation Commerciale (Alpha SAS)",
         type: "Vectoriel + Manuscrit",
+        dateAdded: "11/10/2026 09:00",
         isScanned: false,
         v1_preds: [
           { id: "BOX_V1_1", category: "signature", classId: 0, x1: 510, y1: 865, x2: 720, y2: 955, conf: 0.925, origin: "model_v1", status: "candidate" },
@@ -3276,6 +3350,7 @@
         id: "DOC_003",
         title: "Accord-Cadre avec Signature & Paraphe en marge",
         type: "Vectoriel + Manuscrit",
+        dateAdded: "11/10/2026 09:15",
         isScanned: false,
         v1_preds: [
           { id: "BOX_V1_2", category: "signature", classId: 0, x1: 515, y1: 870, x2: 715, y2: 950, conf: 0.912, origin: "model_v1", status: "candidate" }
@@ -3293,6 +3368,7 @@
         id: "DOC_004_SCAN",
         title: "Contrat Numérisé Scanné / Incliné (Image Pure)",
         type: "Scan Image Pure (0 texte)",
+        dateAdded: "11/10/2026 09:30",
         isScanned: true,
         v1_preds: [
           { id: "BOX_V1_3", category: "signature", classId: 0, x1: 490, y1: 855, x2: 730, y2: 945, conf: 0.885, origin: "model_v1", status: "candidate" },
@@ -3309,6 +3385,7 @@
         id: "DOC_005_NEUTRAL",
         title: "Contrôle Négatif : Rapport Technique sans Signature",
         type: "Tableaux & Tampon (Zéro signature)",
+        dateAdded: "11/10/2026 10:00",
         isScanned: false,
         v1_preds: [
           { id: "BOX_V1_FP3", category: "signature", classId: 0, x1: 100, y1: 800, x2: 200, y2: 900, conf: 0.740, origin: "model_v1", status: "candidate" },
@@ -3321,6 +3398,7 @@
         id: "DOC_006",
         title: "Bail Commercial 3-6-9 (Bailleur & Preneur)",
         type: "Vectoriel + Manuscrit",
+        dateAdded: "11/10/2026 10:15",
         isScanned: false,
         v1_preds: [
           { id: "BOX_V1_5", category: "signature", classId: 0, x1: 110, y1: 875, x2: 310, y2: 960, conf: 0.938, origin: "model_v1", status: "candidate" },
@@ -3341,6 +3419,7 @@
         id: "DOC_012",
         title: "Attestation sur l'Honneur avec Signature",
         type: "Vectoriel + Manuscrit",
+        dateAdded: "11/10/2026 10:30",
         isScanned: false,
         v1_preds: [
           { id: "BOX_V1_7", category: "signature", classId: 0, x1: 300, y1: 865, x2: 520, y2: 955, conf: 0.902, origin: "model_v1", status: "candidate" }
@@ -3356,6 +3435,7 @@
         id: "DOC_TEST_YOLO_SYNTH",
         title: "Dossier de Test YOLO (signature_detection_yolo_test.pdf)",
         type: "Vectoriel (26 tracés, 0 image matricielle)",
+        dateAdded: "11/10/2026 11:00",
         isScanned: false,
         isCustomUpload: false,
         isNegativeControl: false,
@@ -3451,18 +3531,22 @@
       }
     };
 
+    // Sauvegarde immuable des documents de référence originaux
+    const DEFAULT_YOLO_TEST_DRAW_PAGE = (VISION_LAB_DOCUMENTS.yolo_test_pdf && VISION_LAB_DOCUMENTS.yolo_test_pdf.drawCustomPage) ? VISION_LAB_DOCUMENTS.yolo_test_pdf.drawCustomPage : null;
+    const DEFAULT_BENCHMARK_DOCUMENTS = JSON.parse(JSON.stringify(VISION_LAB_DOCUMENTS));
+
     // Navigation entre sous-onglets du laboratoire
     function switchLabSubtab(subtabId) {
       visionLabState.activeSubtab = subtabId;
-      ['test', 'annotate', 'train', 'compare'].forEach(st => {
+      ['test', 'annotate', 'train', 'compare', 'docs'].forEach(st => {
         const sec = document.getElementById('lab-section-' + st);
         const btn = document.getElementById('btn-lab-subtab-' + st);
         if (st === subtabId) {
-          sec.classList.remove('hidden');
-          btn.className = 'px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 bg-purple-600 text-white shadow';
+          if (sec) sec.classList.remove('hidden');
+          if (btn) btn.className = 'px-4 py-2 rounded-lg font-bold transition-all flex items-center gap-2 bg-purple-600 text-white shadow';
         } else {
-          sec.classList.add('hidden');
-          btn.className = 'px-4 py-2 rounded-lg font-semibold text-slate-400 hover:text-white transition-all flex items-center gap-2';
+          if (sec) sec.classList.add('hidden');
+          if (btn) btn.className = 'px-4 py-2 rounded-lg font-semibold text-slate-400 hover:text-white transition-all flex items-center gap-2';
         }
       });
 
@@ -3474,6 +3558,9 @@
         initAnnotationCanvasEvents();
         renderAnnotationCanvas();
         renderAnnotatedBoxesList();
+      } else if (subtabId === 'docs') {
+        renderVisionLabDocsTable();
+        updateVisionLabDocsCount();
       }
     }
 
@@ -3511,8 +3598,35 @@
 
     // Chargement d'un document dans le laboratoire
     function loadVisionLabDocument(key) {
+      if (!key || !VISION_LAB_DOCUMENTS[key]) {
+        const keys = Object.keys(VISION_LAB_DOCUMENTS);
+        if (keys.length > 0) {
+          key = keys[0];
+        } else {
+          visionLabState.currentDocKey = null;
+          visionLabState.currentDetections = [];
+          visionLabState.isNegativeControl = false;
+          const titleEl = document.getElementById('doc-info-title');
+          const typeEl = document.getElementById('doc-info-type');
+          const statusEl = document.getElementById('doc-info-status');
+          const frozenEl = document.getElementById('doc-info-frozen');
+          if (titleEl) titleEl.innerText = "Aucun document enregistré";
+          if (typeEl) typeEl.innerText = "-";
+          if (statusEl) statusEl.innerText = "Registre vide (0 document)";
+          if (frozenEl) {
+            frozenEl.innerText = "Non gelée";
+            frozenEl.className = "text-slate-500 font-mono";
+          }
+          renderVisionLabCanvas();
+          renderVisionLabDetectionsList();
+          updateVisionLabStatusBadge();
+          updateVisionLabTelemetry();
+          return;
+        }
+      }
+
       visionLabState.currentDocKey = key;
-      const doc = VISION_LAB_DOCUMENTS[key] || VISION_LAB_DOCUMENTS['contract_sig'];
+      const doc = VISION_LAB_DOCUMENTS[key];
 
       // Sélection des prédictions selon la version active du modèle
       const preds = (visionLabState.activeModelVersion === 'v2')
@@ -3549,9 +3663,309 @@
       }
     }
 
+    // =========================================================================
+    // RÉINITIALISATION DE L'ANALYSE COURANTE DU LABORATOIRE VISION (EXIGENCE #2)
+    // =========================================================================
+    function resetVisionLabAnalysis() {
+      if (!visionLabState.currentDocKey || !VISION_LAB_DOCUMENTS[visionLabState.currentDocKey]) {
+        return;
+      }
+      const doc = VISION_LAB_DOCUMENTS[visionLabState.currentDocKey];
+
+      // 1. Restaurer les prédictions brutes d'origine du modèle actif (effacer boîtes altérées / rejetées)
+      const basePreds = (visionLabState.activeModelVersion === 'v2')
+        ? (doc.v2_preds || doc.gt_signatures || [])
+        : (doc.v1_preds || doc.gt_signatures || []);
+
+      visionLabState.currentDetections = basePreds.map(s => ({
+        ...s,
+        status: 'candidate'
+      }));
+
+      // 2. Réinitialiser les corrections manuelles non enregistrées & sélections
+      visionLabState.selectedBoxId = null;
+      visionLabState.isDrawing = false;
+      visionLabState.isDragging = false;
+      visionLabState.dragHandle = null;
+
+      // 3. Effacer les résultats comparatifs temporaires (référence v1 gelée)
+      visionLabState.v1FrozenReference = [];
+      const frozenEl = document.getElementById('doc-info-frozen');
+      if (frozenEl) {
+        frozenEl.innerText = "Non gelée";
+        frozenEl.className = "text-slate-500 font-mono";
+      }
+
+      // 4. Réinitialiser les états d'affichage et erreurs
+      visionLabState.viewMode = 'boxes';
+      const btnBoxes = document.getElementById('btn-lab-view-boxes');
+      const btnRedacted = document.getElementById('btn-lab-view-redacted');
+      const btnRaw = document.getElementById('btn-lab-view-raw');
+      if (btnBoxes) btnBoxes.className = 'px-2.5 py-1 rounded text-xs font-semibold bg-indigo-600 text-white';
+      if (btnRedacted) btnRedacted.className = 'px-2.5 py-1 rounded text-xs font-semibold text-slate-400 hover:text-white';
+      if (btnRaw) btnRaw.className = 'px-2.5 py-1 rounded text-xs font-semibold text-slate-400 hover:text-white';
+
+      // 5. Relancer un affichage propre immédiat
+      renderVisionLabCanvas();
+      renderVisionLabDetectionsList();
+      updateVisionLabStatusBadge();
+      updateVisionLabTelemetry();
+
+      if (visionLabState.activeSubtab === 'annotate') {
+        renderAnnotationCanvas();
+        renderAnnotatedBoxesList();
+      }
+
+      // Notification visuelle
+      const badge = document.getElementById('vision-lab-status-badge');
+      if (badge) {
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30";
+        badge.innerHTML = `<i class="fa-solid fa-arrows-rotate mr-1 text-rose-400"></i> Analyse réinitialisée ✓`;
+        setTimeout(() => updateVisionLabStatusBadge(), 2500);
+      }
+    }
+
+    function resetVisionLabDocAnalysis(key) {
+      if (visionLabState.currentDocKey !== key) {
+        loadVisionLabDocument(key);
+      }
+      resetVisionLabAnalysis();
+      renderVisionLabDocsTable();
+    }
+
+    // =========================================================================
+    // GESTION & SUPPRESSION DES DOCUMENTS DU LABORATOIRE (EXIGENCE #1)
+    // =========================================================================
+    function populateVisionLabDocSelect() {
+      const selectEl = document.getElementById('vision-lab-doc-select');
+      if (!selectEl) return;
+      selectEl.innerHTML = '';
+      const entries = Object.entries(VISION_LAB_DOCUMENTS);
+      if (entries.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.text = '(Aucun document enregistré)';
+        selectEl.appendChild(opt);
+        return;
+      }
+
+      entries.forEach(([key, doc], idx) => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        const prefix = doc.isCustomUpload ? `📄 [Upload] ` : `Test #${String(idx + 1).padStart(2, '0')} : `;
+        opt.text = `${prefix}${doc.title}`;
+        if (key === visionLabState.currentDocKey) {
+          opt.selected = true;
+        }
+        selectEl.appendChild(opt);
+      });
+    }
+
+    function updateVisionLabDocsCount() {
+      const count = Object.keys(VISION_LAB_DOCUMENTS).length;
+      const badge = document.getElementById('lab-docs-count-badge');
+      const quickBadge = document.getElementById('quick-docs-count');
+      const tableBadge = document.getElementById('docs-table-total-badge');
+      if (badge) badge.innerText = count;
+      if (quickBadge) quickBadge.innerText = count;
+      if (tableBadge) tableBadge.innerText = `${count} Document${count > 1 ? 's' : ''}`;
+      updateSelectedDocsCount();
+    }
+
+    function renderVisionLabDocsTable() {
+      const tbody = document.getElementById('vision-lab-docs-table-body');
+      if (!tbody) return;
+      const entries = Object.entries(VISION_LAB_DOCUMENTS);
+
+      if (entries.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="p-8 text-center text-slate-500">
+              <i class="fa-solid fa-folder-open text-2xl mb-2 block text-slate-600"></i>
+              Aucun document enregistré dans le laboratoire Vision.<br>
+              <span class="text-[11px] text-slate-400">Importez un nouveau PDF ou cliquez sur "Rétablir par défaut" pour recharger les cas de test.</span>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = entries.map(([key, doc]) => {
+        const isActive = (key === visionLabState.currentDocKey);
+        const v1Count = doc.v1_preds ? doc.v1_preds.length : 0;
+        const v2Count = doc.v2_preds ? doc.v2_preds.length : 0;
+        const gtCount = doc.gt_signatures ? doc.gt_signatures.length : 0;
+        const isNeg = (doc.isNegativeControl === true);
+
+        return `
+          <tr class="hover:bg-slate-800/40 transition-colors ${isActive ? 'bg-purple-950/20' : ''}">
+            <td class="p-3 text-center">
+              <input type="checkbox" class="doc-checkbox accent-purple-500 cursor-pointer" value="${key}" onchange="updateSelectedDocsCount()">
+            </td>
+            <td class="p-3">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid ${doc.isScanned ? 'fa-image text-amber-400' : 'fa-file-lines text-indigo-400'} text-sm"></i>
+                <div>
+                  <div class="font-bold text-slate-200 flex items-center gap-1.5">
+                    ${escapeHtml(doc.title)}
+                    ${isActive ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-purple-600 text-white font-bold tracking-wider uppercase">Actif</span>' : ''}
+                  </div>
+                  <div class="text-[10px] font-mono text-slate-500">${doc.id || key}</div>
+                </div>
+              </div>
+            </td>
+            <td class="p-3 font-mono text-slate-400 text-[11px]">
+              ${doc.dateAdded || '11/10/2026'}
+            </td>
+            <td class="p-3">
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${doc.isScanned ? 'bg-amber-950/50 text-amber-300 border border-amber-800' : 'bg-slate-800 text-slate-300 border border-slate-700'}">
+                ${escapeHtml(doc.type || (doc.isScanned ? 'Scan pur' : 'Vectoriel'))}
+              </span>
+            </td>
+            <td class="p-3">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                ${isNeg ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-cyan-950/60 text-cyan-300 border border-cyan-800">Contrôle Négatif (0 sig)</span>' : ''}
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-900 text-slate-400 border border-slate-800" title="Prédictions v1">v1: ${v1Count}</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-950/50 text-purple-300 border border-purple-800" title="Prédictions v2">v2: ${v2Count}</span>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-950/50 text-emerald-300 border border-emerald-800" title="Vérité terrain annotée">GT: ${gtCount}</span>
+              </div>
+            </td>
+            <td class="p-3 text-right">
+              <div class="flex items-center justify-end gap-1.5">
+                <button onclick="openVisionLabDoc('${key}')" class="px-2 py-1 rounded text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors" title="Ouvrir dans l'onglet Tester">
+                  <i class="fa-solid fa-arrow-up-right-from-square text-cyan-400 mr-1"></i> Ouvrir
+                </button>
+                <button onclick="resetVisionLabDocAnalysis('${key}')" class="px-2 py-1 rounded text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-rose-300 border border-slate-700 transition-colors" title="Réinitialiser l'analyse de ce document">
+                  <i class="fa-solid fa-arrows-rotate mr-1 text-rose-400"></i> Réinit
+                </button>
+                <button onclick="deleteVisionLabDoc('${key}')" class="px-2 py-1 rounded text-[11px] font-semibold bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-500/30 transition-colors" title="Supprimer ce document">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openVisionLabDoc(key) {
+      loadVisionLabDocument(key);
+      switchLabSubtab('test');
+    }
+
+    function toggleSelectAllDocs(checked) {
+      document.querySelectorAll('.doc-checkbox').forEach(cb => {
+        cb.checked = checked;
+      });
+      updateSelectedDocsCount();
+    }
+
+    function updateSelectedDocsCount() {
+      const checked = document.querySelectorAll('.doc-checkbox:checked').length;
+      const countEl = document.getElementById('selected-docs-count');
+      const btnEl = document.getElementById('btn-delete-selected-docs');
+      if (countEl) countEl.innerText = checked;
+      if (btnEl) {
+        if (checked > 0) {
+          btnEl.disabled = false;
+          btnEl.className = 'bg-red-950/50 hover:bg-red-900/70 text-red-300 border border-red-500/40 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer';
+        } else {
+          btnEl.disabled = true;
+          btnEl.className = 'bg-slate-800 text-slate-500 border border-slate-700 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-not-allowed';
+        }
+      }
+    }
+
+    function deleteVisionLabDoc(key, skipConfirm = false) {
+      if (!key || !VISION_LAB_DOCUMENTS[key]) return;
+      const doc = VISION_LAB_DOCUMENTS[key];
+
+      if (!skipConfirm) {
+        const ok = confirm(`Confirmer la suppression du document "${doc.title}" ?\n\nToutes les annotations, prédictions, boîtes corrigées et métadonnées associées seront définitivement supprimées sans affecter les autres documents ni les poids du modèle.`);
+        if (!ok) return;
+      }
+
+      // Suppression propre du registre
+      delete VISION_LAB_DOCUMENTS[key];
+
+      // Nettoyage des références actives si ce document était affiché
+      if (visionLabState.currentDocKey === key) {
+        visionLabState.v1FrozenReference = [];
+        visionLabState.selectedBoxId = null;
+        visionLabState.currentDetections = [];
+        const remainingKeys = Object.keys(VISION_LAB_DOCUMENTS);
+        if (remainingKeys.length > 0) {
+          visionLabState.currentDocKey = remainingKeys[0];
+          loadVisionLabDocument(remainingKeys[0]);
+        } else {
+          visionLabState.currentDocKey = null;
+          loadVisionLabDocument(null);
+        }
+      }
+
+      populateVisionLabDocSelect();
+      updateVisionLabDocsCount();
+      renderVisionLabDocsTable();
+    }
+
+    function deleteSelectedVisionLabDocs() {
+      const checkedBoxes = Array.from(document.querySelectorAll('.doc-checkbox:checked'));
+      const keys = checkedBoxes.map(cb => cb.value).filter(k => VISION_LAB_DOCUMENTS[k]);
+      if (keys.length === 0) return;
+
+      const ok = confirm(`Confirmer la suppression des ${keys.length} document(s) sélectionné(s) ?\n\nToutes leurs annotations, prédictions et métadonnées seront supprimées sans affecter les poids du modèle.`);
+      if (!ok) return;
+
+      keys.forEach(k => deleteVisionLabDoc(k, true));
+
+      const selectAllCb = document.getElementById('docs-select-all');
+      if (selectAllCb) selectAllCb.checked = false;
+      updateSelectedDocsCount();
+    }
+
+    function deleteAllVisionLabDocs() {
+      const keys = Object.keys(VISION_LAB_DOCUMENTS);
+      if (keys.length === 0) {
+        alert("Le registre de documents est déjà vide.");
+        return;
+      }
+
+      const ok = confirm(`⚠️ ATTENTION : Confirmer la suppression de TOUS les documents (${keys.length}) du laboratoire Vision ?\n\nCette action efface l'intégralité des documents enregistrés, leurs annotations et leurs résultats d'analyse.\nLes poids du modèle (best.pt/best.onnx) ne seront pas modifiés.`);
+      if (!ok) return;
+
+      keys.forEach(k => {
+        delete VISION_LAB_DOCUMENTS[k];
+      });
+
+      visionLabState.currentDocKey = null;
+      visionLabState.currentDetections = [];
+      visionLabState.v1FrozenReference = [];
+      visionLabState.selectedBoxId = null;
+
+      loadVisionLabDocument(null);
+      populateVisionLabDocSelect();
+      updateVisionLabDocsCount();
+      renderVisionLabDocsTable();
+
+      const selectAllCb = document.getElementById('docs-select-all');
+      if (selectAllCb) selectAllCb.checked = false;
+      updateSelectedDocsCount();
+    }
+
+    function restoreDefaultVisionLabDocs() {
+      Object.assign(VISION_LAB_DOCUMENTS, JSON.parse(JSON.stringify(DEFAULT_BENCHMARK_DOCUMENTS)));
+      if (VISION_LAB_DOCUMENTS.yolo_test_pdf && DEFAULT_YOLO_TEST_DRAW_PAGE) {
+        VISION_LAB_DOCUMENTS.yolo_test_pdf.drawCustomPage = DEFAULT_YOLO_TEST_DRAW_PAGE;
+      }
+      populateVisionLabDocSelect();
+      updateVisionLabDocsCount();
+      loadVisionLabDocument('contract_sig');
+      renderVisionLabDocsTable();
+    }
+
     // Télémétrie et transparence obligatoire du modèle
     function updateVisionLabTelemetry() {
-      const doc = VISION_LAB_DOCUMENTS[visionLabState.currentDocKey] || VISION_LAB_DOCUMENTS['contract_sig'];
+      const doc = (visionLabState.currentDocKey && VISION_LAB_DOCUMENTS[visionLabState.currentDocKey]) ? VISION_LAB_DOCUMENTS[visionLabState.currentDocKey] : null;
       const engineEl = document.getElementById('telemetry-engine-name');
       const rawEl = document.getElementById('telemetry-raw-count');
       const threshLabelEl = document.getElementById('telemetry-thresh-label');
@@ -3561,6 +3975,16 @@
       const diagEl = document.getElementById('telemetry-diagnostic-note');
 
       if (threshLabelEl) threshLabelEl.innerText = `${Math.round(visionLabState.confThresh * 100)}%`;
+
+      if (!doc) {
+        if (engineEl) engineEl.innerText = 'Aucun modèle actif (0 document)';
+        if (rawEl) rawEl.innerText = '0 boîte';
+        if (filteredEl) filteredEl.innerText = '0 boîte active';
+        if (scoresEl) scoresEl.innerHTML = '<span class="text-slate-500 italic">Aucun document chargé</span>';
+        if (pdfStatusEl) pdfStatusEl.innerText = 'Aucun fichier chargé';
+        if (diagEl) diagEl.innerHTML = '<span class="text-slate-400">Veuillez importer un document ou rétablir les cas de test de référence.</span>';
+        return;
+      }
 
       if (visionLabState.engineMode === 'legacy') {
         if (engineEl) engineEl.innerText = 'Heuristique Textuelle 1D (Regex)';
@@ -3775,18 +4199,18 @@
       }
 
       VISION_LAB_DOCUMENTS[customKey] = customDoc;
-      const selectEl = document.getElementById('vision-lab-doc-select');
-      if (selectEl) {
-        const opt = document.createElement('option');
-        opt.value = customKey;
-        opt.text = `📄 ${file.name} (Inédit)`;
-        opt.selected = true;
-        selectEl.add(opt);
-      }
+      populateVisionLabDocSelect();
+      updateVisionLabDocsCount();
       loadVisionLabDocument(customKey);
     }
 
     function initVisionLabView() {
+      populateVisionLabDocSelect();
+      updateVisionLabDocsCount();
+      if (!visionLabState.currentDocKey || !VISION_LAB_DOCUMENTS[visionLabState.currentDocKey]) {
+        const keys = Object.keys(VISION_LAB_DOCUMENTS);
+        visionLabState.currentDocKey = keys.length ? keys[0] : null;
+      }
       loadVisionLabDocument(visionLabState.currentDocKey);
     }
 
@@ -3874,7 +4298,11 @@
     function renderVisionLabDetectionsList() {
       const container = document.getElementById('vision-lab-detections-list');
       if (!container) return;
-      const doc = VISION_LAB_DOCUMENTS[visionLabState.currentDocKey];
+      const doc = (visionLabState.currentDocKey && VISION_LAB_DOCUMENTS[visionLabState.currentDocKey]) ? VISION_LAB_DOCUMENTS[visionLabState.currentDocKey] : null;
+      if (!doc) {
+        container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">Aucun document chargé.</p>`;
+        return;
+      }
       
       if (visionLabState.engineMode === 'legacy') {
         if (doc.isScanned) {
@@ -3934,6 +4362,17 @@
 
     // Dessin de fond de document (partagé entre visionLabCanvas et annotationCanvas)
     function drawDocumentBackground(ctx, w, h, doc) {
+      if (!doc) {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = '#64748b';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.fillText("AUCUN DOCUMENT CHARGÉ", 280, 520);
+        ctx.font = 'normal 12px sans-serif';
+        ctx.fillText("Importez un document PDF/Image ou restaurez les cas de test par défaut.", 180, 550);
+        return;
+      }
+
       if (doc.drawCustomPage && !doc.uploadedImage) {
         doc.drawCustomPage(ctx, w, h);
         return;
@@ -4542,6 +4981,10 @@
     }
 
     function exportVisionLabYoloTxt() {
+      if (!visionLabState.currentDocKey || !VISION_LAB_DOCUMENTS[visionLabState.currentDocKey]) {
+        alert("Aucun document chargé à exporter.");
+        return;
+      }
       const doc = VISION_LAB_DOCUMENTS[visionLabState.currentDocKey];
       let txtContent = "";
       if (!visionLabState.isNegativeControl) {
@@ -4564,6 +5007,10 @@
     }
 
     function downloadRedactedLabImage() {
+      if (!visionLabState.currentDocKey || !VISION_LAB_DOCUMENTS[visionLabState.currentDocKey]) {
+        alert("Aucun document chargé à expurger.");
+        return;
+      }
       applyVisionLabRedaction();
       const canvas = document.getElementById('vision-lab-canvas');
       if (!canvas) return;
@@ -4575,6 +5022,10 @@
     }
 
     function exportVisionLabDetections(format) {
+      if (!visionLabState.currentDocKey || !VISION_LAB_DOCUMENTS[visionLabState.currentDocKey]) {
+        alert("Aucun document chargé à exporter.");
+        return;
+      }
       const doc = VISION_LAB_DOCUMENTS[visionLabState.currentDocKey];
       const payload = {
         document_id: doc.id,
