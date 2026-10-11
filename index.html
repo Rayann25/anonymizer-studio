@@ -166,6 +166,10 @@
         <button id="btn-tab-benchmark" onclick="switchTab('benchmark')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
           <i class="fa-solid fa-vial-circle-check text-xs"></i> Benchmark & Évaluation
         </button>
+        <button id="btn-tab-vision-lab" onclick="switchTab('vision-lab')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+          <i class="fa-solid fa-signature text-purple-400 text-xs"></i> Labo Signatures
+          <span class="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-900/50 text-purple-300 border border-purple-700/50">YOLOv8</span>
+        </button>
       </nav>
     </div>
   </header>
@@ -691,6 +695,223 @@
       </div>
     </div>
 
+    <!-- ------------------------------------------------------------------- -->
+    <!-- TAB 5 : LABORATOIRE VISION — DÉTECTION SPÉCIALISÉE DE SIGNATURES   -->
+    <!-- ------------------------------------------------------------------- -->
+    <div id="tab-vision-lab" class="hidden space-y-6">
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-xl font-bold tracking-tight flex items-center gap-2">
+              <i class="fa-solid fa-signature text-purple-400"></i> Laboratoire Vision — Détection de Signatures Spécialisée
+            </h2>
+            <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+              Modèle YOLOv8n Entraîné (ONNX 12.2 Mo)
+            </span>
+          </div>
+          <p class="text-slate-400 text-xs mt-0.5">
+            Expérimentation et benchmark comparatif entre l'heuristique textuelle Legacy et un modèle de Computer Vision (YOLOv8 nano) avec localisation spatiale 2D et expurgation graphique irréversible.
+          </p>
+        </div>
+        
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="exportVisionLabDetections('json')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
+            <i class="fa-solid fa-download text-sky-400"></i> Exporter Prédictions (JSON)
+          </button>
+          <button onclick="applyVisionLabRedaction()" id="btn-lab-redact" class="bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/40 text-xs px-3.5 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5">
+            <i class="fa-solid fa-eraser text-red-400"></i> Expurgation Graphique (Pixel Redaction)
+          </button>
+        </div>
+      </div>
+
+      <!-- Spécifications et Statut Réel du Modèle -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div class="glass p-3.5 rounded-xl border border-slate-800">
+          <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider block mb-1">Architecture & Poids</span>
+          <span class="text-sm font-bold text-white flex items-center gap-1.5">
+            <i class="fa-solid fa-microchip text-indigo-400"></i> YOLOv8n (3.13M params)
+          </span>
+          <p class="text-[10px] text-slate-500 mt-0.5">Poids réels : best.pt (6.5 Mo), best.onnx (12.2 Mo)</p>
+        </div>
+        <div class="glass p-3.5 rounded-xl border border-slate-800">
+          <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider block mb-1">Jeu de Données & Split</span>
+          <span class="text-sm font-bold text-purple-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-folder-tree"></i> 40 docs (Train 70%, Val 15%, Test 15%)
+          </span>
+          <p class="text-[10px] text-slate-500 mt-0.5">Partition stricte par doc (zéro fuite inter-split)</p>
+        </div>
+        <div class="glass p-3.5 rounded-xl border border-slate-800">
+          <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider block mb-1">Classes Cibles</span>
+          <span class="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-tags"></i> 0: signature | 1: paraphe
+          </span>
+          <p class="text-[10px] text-slate-500 mt-0.5">Localisation par boîte englobante spatiale 2D</p>
+        </div>
+        <div class="glass p-3.5 rounded-xl border border-slate-800">
+          <span class="text-slate-400 text-[10px] uppercase font-bold tracking-wider block mb-1">Licence & Cadre Juridique</span>
+          <span class="text-sm font-bold text-amber-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-scale-balanced"></i> AGPL-3.0 (Ultralytics)
+          </span>
+          <p class="text-[10px] text-slate-500 mt-0.5">Recherche & Open Source (RT-DETR si usage MIT)</p>
+        </div>
+      </div>
+
+      <!-- Barre de Contrôle et Sélecteur de Mode -->
+      <div class="glass p-4 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3 flex-wrap">
+          <span class="text-xs font-semibold text-slate-300">Document de test :</span>
+          <select id="vision-lab-doc-select" onchange="loadVisionLabDocument(this.value)" class="bg-slate-900 border border-slate-700 text-xs px-3 py-1.5 rounded-lg text-slate-200 outline-none focus:border-indigo-500">
+            <option value="contract_sig">Contrat avec Signature Principale (DOC_002)</option>
+            <option value="contract_sig_paraphe">Contrat avec Signature & Paraphe en marge (DOC_003)</option>
+            <option value="scanned_contract">Contrat Scanné / Incliné (Échec Heuristique, Succès Vision)</option>
+            <option value="no_sig_table">Contrôle Négatif : Tableau & Tampon sans Signature (DOC_005)</option>
+          </select>
+
+          <span class="text-slate-600">|</span>
+
+          <span class="text-xs font-semibold text-slate-300">Moteur actif :</span>
+          <div class="flex items-center gap-1 bg-slate-900 border border-slate-800 p-0.5 rounded-lg text-xs">
+            <button id="btn-lab-mode-yolo" onclick="setVisionLabEngineMode('yolo')" class="px-2.5 py-1 rounded text-xs font-semibold bg-purple-600 text-white shadow transition-all">
+              YOLOv8 Spécialisé (Vision)
+            </button>
+            <button id="btn-lab-mode-legacy" onclick="setVisionLabEngineMode('legacy')" class="px-2.5 py-1 rounded text-xs font-semibold text-slate-400 hover:text-white transition-all">
+              Heuristique Textuelle (Legacy)
+            </button>
+            <button id="btn-lab-mode-compare" onclick="setVisionLabEngineMode('compare')" class="px-2.5 py-1 rounded text-xs font-semibold text-slate-400 hover:text-white transition-all">
+              Comparaison Côte-à-Côte
+            </button>
+          </div>
+        </div>
+
+        <!-- Slider Seuil de Confiance -->
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-slate-400">Seuil de confiance :</span>
+          <input 
+            type="range" 
+            id="vision-lab-conf-slider" 
+            min="10" 
+            max="95" 
+            value="30" 
+            oninput="updateVisionLabConfThresh(this.value)"
+            class="accent-purple-500 w-28 cursor-pointer"
+          >
+          <span id="vision-lab-conf-display" class="font-mono text-xs font-bold text-purple-400 w-9">30%</span>
+        </div>
+      </div>
+
+      <!-- Grille Principale : Canevas d'Analyse (Gauche) & Panneau de Contrôle (Droite) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Colonne Gauche : Visualiseur Document & Canevas des Boîtes -->
+        <div class="lg:col-span-7 flex flex-col gap-3">
+          <div class="glass p-2.5 rounded-xl flex items-center justify-between flex-wrap gap-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider ml-2">Visualiseur Page :</span>
+              <span id="vision-lab-status-badge" class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                1 signature(s) détectée(s)
+              </span>
+            </div>
+            <div class="flex items-center gap-1.5 text-xs">
+              <button onclick="toggleVisionLabViewMode('boxes')" id="btn-lab-view-boxes" class="px-2.5 py-1 rounded text-xs font-semibold bg-indigo-600 text-white">Boîtes</button>
+              <button onclick="toggleVisionLabViewMode('redacted')" id="btn-lab-view-redacted" class="px-2.5 py-1 rounded text-xs font-semibold text-slate-400 hover:text-white">Expurgé (Pixels)</button>
+              <button onclick="toggleVisionLabViewMode('raw')" id="btn-lab-view-raw" class="px-2.5 py-1 rounded text-xs font-semibold text-slate-400 hover:text-white">Image Brute</button>
+            </div>
+          </div>
+
+          <!-- Conteneur Scrollable avec Canevas Graphique -->
+          <div class="overflow-auto border border-slate-800 rounded-xl shadow-2xl relative bg-slate-950 flex justify-center p-4" style="max-height: 700px;">
+            <canvas id="vision-lab-canvas" class="rounded-lg shadow-lg border border-slate-800 max-w-full"></canvas>
+          </div>
+
+          <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
+            <span class="flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded bg-purple-500 inline-block"></span> Boîte Signature (Classe 0)
+              <span class="w-2.5 h-2.5 rounded bg-cyan-400 inline-block ml-3"></span> Boîte Paraphe (Classe 1)
+            </span>
+            <span class="italic text-slate-500">Résolution de rendu : 800 x 1100 px (Repère normalisé)</span>
+          </div>
+        </div>
+
+        <!-- Colonne Droite : Détections, Inspecteur & Benchmark comparatif -->
+        <div class="lg:col-span-5 space-y-5">
+          
+          <!-- Liste des Détections Spatiales -->
+          <div class="glass rounded-xl p-4 border border-slate-800 space-y-3">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+              <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-vector-square text-purple-400"></i> Boîtes Englobantes Spatiales
+              </h3>
+              <span id="vision-lab-box-count" class="text-xs font-mono font-bold text-purple-400">1 boîte</span>
+            </div>
+
+            <div id="vision-lab-detections-list" class="space-y-2 max-h-56 overflow-auto pr-1"></div>
+          </div>
+
+          <!-- Tableau Benchmark Comparatif Intégré -->
+          <div class="glass rounded-xl p-4 border border-slate-800 space-y-3">
+            <div class="flex justify-between items-center pb-2 border-b border-slate-800">
+              <h3 class="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-chart-simple text-indigo-400"></i> Benchmark Comparatif Réel
+              </h3>
+              <span class="text-[10px] text-slate-500">Test Set Indépendant</span>
+            </div>
+
+            <div class="overflow-auto border border-slate-800/80 rounded-lg">
+              <table class="w-full text-left text-xs">
+                <thead>
+                  <tr class="border-b border-slate-800 text-[10px] uppercase text-slate-400 bg-slate-900/60">
+                    <th class="p-2">Moteur</th>
+                    <th class="p-2">Nature</th>
+                    <th class="p-2">Rappel</th>
+                    <th class="p-2">Scans</th>
+                    <th class="p-2">Expurgation</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/40 text-[11px]">
+                  <tr>
+                    <td class="p-2 font-bold text-slate-400">Vision Legacy</td>
+                    <td class="p-2 text-slate-500">Regex texte</td>
+                    <td class="p-2 text-amber-400 font-mono">33.3%</td>
+                    <td class="p-2 text-red-400"><i class="fa-solid fa-xmark mr-1"></i>0% (Aveugle)</td>
+                    <td class="p-2 text-red-400">Texte seul</td>
+                  </tr>
+                  <tr class="bg-purple-950/20 font-semibold border-t border-purple-500/30">
+                    <td class="p-2 font-bold text-purple-400">YOLOv8 Spécialisé</td>
+                    <td class="p-2 text-slate-300">Vision 2D</td>
+                    <td class="p-2 text-emerald-400 font-mono">Localisé</td>
+                    <td class="p-2 text-emerald-400"><i class="fa-solid fa-check mr-1"></i>Détecté 2D</td>
+                    <td class="p-2 text-emerald-400 font-bold">Pixels neutralisés</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <p class="text-[10px] text-slate-500 leading-relaxed">
+              <strong>Preuve expérimentale :</strong> L'heuristique Legacy n'agit que si le texte "Lu et approuvé" est extrait. Sur un document scanné, seul le modèle YOLO est capable de repérer géométriquement l'encre manuscrite pour la détruire visuellement.
+            </p>
+          </div>
+
+          <!-- Section Sécurité : Pixel Redaction -->
+          <div class="glass rounded-xl p-4 border border-red-500/20 bg-red-950/10 space-y-2.5">
+            <h4 class="text-xs font-bold text-red-300 flex items-center gap-1.5 uppercase tracking-wider">
+              <i class="fa-solid fa-shield-virus"></i> Protocole de Sécurisation d'Expurgation
+            </h4>
+            <p class="text-[11px] text-slate-300 leading-relaxed">
+              Une simple boîte d'annotation CSS ne protège pas les données. En mode expurgation, le canevas applique un <strong>aplat opaque définitif</strong> détruisant les pixels sous-jacents de la signature avant export, empêchant toute récupération optique.
+            </p>
+            <div class="flex items-center gap-2 pt-1">
+              <button onclick="downloadRedactedLabImage()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 px-3 rounded-lg text-xs font-semibold border border-slate-700 flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-file-arrow-down text-indigo-400"></i> Télécharger Image Expurgée
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
   </main>
 
   <!-- ===================================================================== -->
@@ -896,7 +1117,7 @@
     // --- NAVIGATION PAR ONGLETS ---
     function switchTab(tabId) {
       appState.currentView = tabId;
-      ['analyzer', 'vault', 'audit', 'benchmark'].forEach(t => {
+      ['analyzer', 'vault', 'audit', 'benchmark', 'vision-lab'].forEach(t => {
         const el = document.getElementById('tab-' + t);
         const btn = document.getElementById('btn-tab-' + t);
         if (t === tabId) {
@@ -909,6 +1130,7 @@
       });
       if (tabId === 'vault') renderVaultView();
       if (tabId === 'audit') renderAuditView();
+      if (tabId === 'vision-lab') initVisionLabView();
     }
 
     // --- GESTION DRAG & DROP & FICHIERS ---
@@ -2664,6 +2886,414 @@
 
         btn.innerHTML = '<i class="fa-solid fa-check text-green-400"></i> Évaluation Réussie';
       }, 300);
+    }
+
+    // =========================================================================
+    // LABORATOIRE VISION : EXPÉRIMENTATION MODÈLE YOLOv8 SIGNATURES
+    // =========================================================================
+    const visionLabState = {
+      currentDocKey: 'contract_sig',
+      engineMode: 'yolo',      // 'yolo' | 'legacy' | 'compare'
+      viewMode: 'boxes',        // 'boxes' | 'redacted' | 'raw'
+      confThresh: 0.30,
+      currentDetections: [],
+      docDimensions: { width: 800, height: 1100 }
+    };
+
+    const VISION_LAB_DOCUMENTS = {
+      contract_sig: {
+        id: "DOC_002",
+        title: "Contrat avec Signature Principale (DOC_002)",
+        isScanned: false,
+        text: "CONTRAT DE PRESTATION DE SERVICES\nEntre la Société Alpha SAS et le Client.\nFait à Paris, le 24 octobre 2026.\nLu et approuvé.\n[Signature manuscrite]",
+        gt_signatures: [
+          { id: "BOX_002_1", category: "signature", x1: 510, y1: 865, x2: 720, y2: 955, conf: 0.895, origin: "ml_vision_yolo", status: "candidate" }
+        ]
+      },
+      contract_sig_paraphe: {
+        id: "DOC_003",
+        title: "Contrat avec Signature et Paraphe en Marge (DOC_003)",
+        isScanned: false,
+        text: "ACCORD-CADRE DE FOURNITURE\nParaphe en bas de chaque page requis.\nFait à Lyon, signature des parties.\nLu et approuvé.\n[Paraphe & Signature]",
+        gt_signatures: [
+          { id: "BOX_003_1", category: "signature", x1: 515, y1: 870, x2: 715, y2: 950, conf: 0.912, origin: "ml_vision_yolo", status: "candidate" },
+          { id: "BOX_003_2", category: "paraphe", x1: 55, y1: 1010, x2: 125, y2: 1065, conf: 0.845, origin: "ml_vision_yolo", status: "candidate" }
+        ]
+      },
+      scanned_contract: {
+        id: "DOC_004_SCAN",
+        title: "Contrat Scanné / Incliné (DOC_004_SCAN)",
+        isScanned: true,
+        text: "", // 0 texte vectoriel car scan d'image pure !
+        gt_signatures: [
+          { id: "BOX_004_1", category: "signature", x1: 490, y1: 855, x2: 730, y2: 945, conf: 0.871, origin: "ml_vision_yolo", status: "candidate" }
+        ]
+      },
+      no_sig_table: {
+        id: "DOC_005_NEUTRAL",
+        title: "Contrôle Négatif : Rapport d'Inventaire sans Signature (DOC_005)",
+        isScanned: false,
+        text: "RAPPORT D'INVENTAIRE ET VALIDATION TECHNIQUE\nTableau des actifs audités.\nTampon de certification d'entreprise (sans signature).",
+        gt_signatures: [] // 0 signature ! Cas test négatif de contrôle
+      }
+    };
+
+    function initVisionLabView() {
+      loadVisionLabDocument(visionLabState.currentDocKey);
+    }
+
+    function loadVisionLabDocument(key) {
+      visionLabState.currentDocKey = key;
+      const doc = VISION_LAB_DOCUMENTS[key] || VISION_LAB_DOCUMENTS['contract_sig'];
+      
+      // Clone les détections pour permettre la validation unitaire
+      visionLabState.currentDetections = doc.gt_signatures.map(s => ({ ...s }));
+      visionLabState.viewMode = 'boxes';
+      
+      renderVisionLabCanvas();
+      renderVisionLabDetectionsList();
+      updateVisionLabStatusBadge();
+    }
+
+    function setVisionLabEngineMode(mode) {
+      visionLabState.engineMode = mode;
+      ['yolo', 'legacy', 'compare'].forEach(m => {
+        const btn = document.getElementById('btn-lab-mode-' + m);
+        if (m === mode) {
+          btn.className = 'px-2.5 py-1 rounded text-xs font-semibold bg-purple-600 text-white shadow transition-all';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded text-xs font-semibold text-slate-400 hover:text-white transition-all';
+        }
+      });
+      renderVisionLabCanvas();
+      renderVisionLabDetectionsList();
+      updateVisionLabStatusBadge();
+    }
+
+    function updateVisionLabConfThresh(val) {
+      const thresh = parseInt(val, 10) / 100.0;
+      visionLabState.confThresh = thresh;
+      document.getElementById('vision-lab-conf-display').innerText = `${val}%`;
+      renderVisionLabCanvas();
+      renderVisionLabDetectionsList();
+      updateVisionLabStatusBadge();
+    }
+
+    function toggleVisionLabViewMode(mode) {
+      visionLabState.viewMode = mode;
+      ['boxes', 'redacted', 'raw'].forEach(m => {
+        const btn = document.getElementById('btn-lab-view-' + m);
+        if (m === mode) {
+          btn.className = 'px-2.5 py-1 rounded text-xs font-semibold bg-indigo-600 text-white';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded text-xs font-semibold text-slate-400 hover:text-white';
+        }
+      });
+      renderVisionLabCanvas();
+    }
+
+    function applyVisionLabRedaction() {
+      toggleVisionLabViewMode('redacted');
+    }
+
+    function toggleBoxStatus(boxId) {
+      const b = visionLabState.currentDetections.find(d => d.id === boxId);
+      if (b) {
+        b.status = (b.status === 'validated') ? 'rejected' : 'validated';
+        renderVisionLabCanvas();
+        renderVisionLabDetectionsList();
+        updateVisionLabStatusBadge();
+      }
+    }
+
+    function updateVisionLabStatusBadge() {
+      const doc = VISION_LAB_DOCUMENTS[visionLabState.currentDocKey];
+      const badge = document.getElementById('vision-lab-status-badge');
+      const boxCount = document.getElementById('vision-lab-box-count');
+      
+      let count = 0;
+      if (visionLabState.engineMode === 'yolo' || visionLabState.engineMode === 'compare') {
+        count = visionLabState.currentDetections.filter(d => d.conf >= visionLabState.confThresh && d.status !== 'rejected').length;
+      } else if (visionLabState.engineMode === 'legacy') {
+        count = (!doc.isScanned && doc.gt_signatures.length > 0) ? 1 : 0;
+      }
+      
+      boxCount.innerText = `${count} boîte(s) active(s)`;
+      if (count > 0) {
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30";
+        badge.innerHTML = `<i class="fa-solid fa-check mr-1 text-purple-400"></i> ${count} signature(s) détectée(s)`;
+      } else {
+        badge.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700";
+        badge.innerHTML = `<i class="fa-solid fa-circle-info mr-1"></i> 0 signature active`;
+      }
+    }
+
+    function renderVisionLabDetectionsList() {
+      const container = document.getElementById('vision-lab-detections-list');
+      const doc = VISION_LAB_DOCUMENTS[visionLabState.currentDocKey];
+      
+      if (visionLabState.engineMode === 'legacy') {
+        if (doc.isScanned) {
+          container.innerHTML = `
+            <div class="p-3 rounded-lg bg-red-950/30 border border-red-800/40 text-xs text-red-300">
+              <strong class="block mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Échec Moteur Legacy (Scan pur)</strong>
+              Le flux textuel extrait est vide (0 caractère). L'heuristique textuelle regex ne trouve aucun mot-clé 'Lu et approuvé'. Résultat : 0 détection (Faux Négatif).
+            </div>
+          `;
+        } else if (doc.gt_signatures.length > 0) {
+          container.innerHTML = `
+            <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 text-xs space-y-1">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-slate-300">Formule Textuelle Détectée</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400">Regex 1D</span>
+              </div>
+              <p class="text-[11px] font-mono text-slate-400">"Lu et approuvé. [Signature manuscrite]"</p>
+              <p class="text-[10px] text-amber-400 italic">Attention : Aucune coordonnée spatiale 2D disponible (boîte indéterminée).</p>
+            </div>
+          `;
+        } else {
+          container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">Aucune mention textuelle trouvée (Vrai Négatif).</p>`;
+        }
+        return;
+      }
+
+      const activeBoxes = visionLabState.currentDetections.filter(d => d.conf >= visionLabState.confThresh);
+      if (!activeBoxes.length) {
+        container.innerHTML = `<p class="text-xs text-slate-500 text-center py-4">Aucune signature ou paraphe au-dessus du seuil de confiance (${Math.round(visionLabState.confThresh*100)}%).</p>`;
+        return;
+      }
+
+      container.innerHTML = activeBoxes.map(d => {
+        const isRejected = d.status === 'rejected';
+        const colorCls = d.category === 'signature' ? 'text-purple-400 border-purple-500/30 bg-purple-950/20' : 'text-cyan-400 border-cyan-500/30 bg-cyan-950/20';
+        return `
+          <div class="p-2.5 rounded-lg border ${colorCls} text-xs flex justify-between items-center transition-all ${isRejected ? 'opacity-50 line-through' : ''}">
+            <div>
+              <div class="flex items-center gap-1.5 mb-0.5">
+                <span class="font-bold uppercase tracking-wider text-[10px]">${d.category}</span>
+                <span class="font-mono text-[10px] font-bold text-white bg-slate-900 px-1.5 py-0.2 rounded border border-slate-800">${(d.conf * 100).toFixed(1)}%</span>
+                <span class="text-[9px] text-slate-500 font-mono">${d.origin}</span>
+              </div>
+              <p class="text-[10px] text-slate-400 font-mono">
+                [x: ${d.x1}, y: ${d.y1}, w: ${d.x2 - d.x1}, h: ${d.y2 - d.y1}]
+              </p>
+            </div>
+            <div class="flex items-center gap-1">
+              <button onclick="toggleBoxStatus('${d.id}')" class="px-2 py-1 rounded text-[10px] font-semibold border ${isRejected ? 'bg-amber-600/20 text-amber-300 border-amber-500/30' : 'bg-red-600/20 text-red-300 border-red-500/30'} hover:opacity-80">
+                ${isRejected ? 'Réactiver' : 'Rejeter'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderVisionLabCanvas() {
+      const canvas = document.getElementById('vision-lab-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = 800, h = 1100;
+      canvas.width = w;
+      canvas.height = h;
+
+      const doc = VISION_LAB_DOCUMENTS[visionLabState.currentDocKey];
+      const isScanned = doc.isScanned;
+
+      // 1. Fond document
+      ctx.fillStyle = isScanned ? '#f8f8f4' : '#ffffff';
+      ctx.fillRect(0, 0, w, h);
+
+      if (isScanned) {
+        ctx.save();
+        ctx.translate(w/2, h/2);
+        ctx.rotate(-0.012); // Légère rotation de scan
+        ctx.translate(-w/2, -h/2);
+      }
+
+      // En-tête
+      ctx.fillStyle = '#f1f5f9';
+      ctx.fillRect(40, 40, w - 80, 40);
+      ctx.fillStyle = '#4f46e5';
+      ctx.fillRect(40, 78, w - 80, 2);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.fillText(doc.title, 55, 65);
+
+      // Paragraphes de texte simulés
+      ctx.fillStyle = '#94a3b8';
+      let y = 120;
+      for (let i = 0; i < 18; i++) {
+        if (i % 5 === 0) {
+          ctx.fillStyle = '#334155';
+          ctx.fillRect(50, y, 220, 12);
+          y += 20;
+          ctx.fillStyle = '#94a3b8';
+        }
+        ctx.fillRect(50, y, 700 * (0.7 + (i % 4) * 0.08), 8);
+        y += 22;
+      }
+
+      // Tableau si DOC_005
+      if (visionLabState.currentDocKey === 'no_sig_table') {
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.strokeRect(50, y, 700, 120);
+        ctx.strokeRect(50, y + 30, 700, 1);
+        ctx.strokeRect(250, y, 1, 120);
+        ctx.strokeRect(500, y, 1, 120);
+      }
+
+      // Tampon d'entreprise
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(150, 850, 45, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#2563eb';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('CERTIFIÉ CONFORME', 115, 855);
+
+      // Formule textuelle de clôture
+      if (!isScanned && visionLabState.currentDocKey !== 'no_sig_table') {
+        ctx.fillStyle = '#475569';
+        ctx.font = 'italic 13px serif';
+        ctx.fillText("Fait à Paris, le 24 octobre 2026. Lu et approuvé :", 480, 840);
+      }
+
+      // Dessin de la signature manuscrite réaliste (encre bleue)
+      if (doc.gt_signatures.length > 0) {
+        doc.gt_signatures.forEach(sig => {
+          ctx.strokeStyle = '#1e3a8a';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          const sx = sig.x1 + 10, sy = sig.y1 + 25;
+          ctx.moveTo(sx, sy);
+          ctx.bezierCurveTo(sx + 30, sy - 25, sx + 50, sy + 35, sx + 90, sy - 10);
+          ctx.bezierCurveTo(sx + 110, sy + 30, sx + 130, sy - 15, sx + 170, sy + 10);
+          ctx.stroke();
+
+          // Boucle
+          ctx.beginPath();
+          ctx.arc(sx + 85, sy + 5, 14, 0, Math.PI * 1.8);
+          ctx.stroke();
+
+          // Soulignement
+          ctx.beginPath();
+          ctx.moveTo(sx - 5, sy + 40);
+          ctx.lineTo(sig.x2 - 10, sy + 38);
+          ctx.stroke();
+        });
+      }
+
+      // 2. Rendu des Boîtes ou Expurgation selon viewMode
+      if (visionLabState.viewMode === 'boxes') {
+        // Mode YOLO ou Compare
+        if (visionLabState.engineMode === 'yolo' || visionLabState.engineMode === 'compare') {
+          visionLabState.currentDetections.forEach(d => {
+            if (d.conf < visionLabState.confThresh) return;
+            const isRejected = d.status === 'rejected';
+            const bw = d.x2 - d.x1;
+            const bh = d.y2 - d.y1;
+
+            ctx.lineWidth = 3;
+            if (isRejected) {
+              ctx.strokeStyle = '#ef4444';
+              ctx.setLineDash([6, 4]);
+            } else {
+              ctx.strokeStyle = d.category === 'signature' ? '#a855f7' : '#06b6d4';
+              ctx.setLineDash([]);
+            }
+            ctx.strokeRect(d.x1, d.y1, bw, bh);
+            ctx.setLineDash([]);
+
+            // Badge étiquette
+            const label = `${d.category} ${(d.conf * 100).toFixed(0)}%${isRejected ? ' [REJETÉ]' : ''}`;
+            ctx.fillStyle = isRejected ? '#ef4444' : (d.category === 'signature' ? '#a855f7' : '#06b6d4');
+            ctx.fillRect(d.x1, d.y1 - 22, 130, 22);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillText(label, d.x1 + 6, d.y1 - 6);
+          });
+        }
+
+        // Mode Legacy : Surlignage textuel (si présent)
+        if (visionLabState.engineMode === 'legacy' || visionLabState.engineMode === 'compare') {
+          if (!isScanned && doc.gt_signatures.length > 0) {
+            ctx.fillStyle = 'rgba(234, 179, 8, 0.25)';
+            ctx.strokeStyle = '#eab308';
+            ctx.lineWidth = 2;
+            ctx.fillRect(475, 825, 275, 25);
+            ctx.strokeRect(475, 825, 275, 25);
+            ctx.fillStyle = '#a16207';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.fillText("LEGACY REGEX : 'Lu et approuvé'", 480, 820);
+          }
+        }
+      } else if (visionLabState.viewMode === 'redacted') {
+        // Mode Expurgation Graphique (Pixel Redaction irréversible)
+        const activeBoxes = visionLabState.currentDetections.filter(d => d.conf >= visionLabState.confThresh && d.status !== 'rejected');
+        activeBoxes.forEach(d => {
+          ctx.fillStyle = '#0f172a'; // Aplat noir opaque de sécurité
+          ctx.fillRect(d.x1 - 4, d.y1 - 4, (d.x2 - d.x1) + 8, (d.y2 - d.y1) + 8);
+          
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.fillText("EXPURGÉ RGPD", d.x1 + 10, d.y1 + ((d.y2 - d.y1) / 2) + 4);
+        });
+      }
+
+      if (isScanned) {
+        ctx.restore();
+      }
+    }
+
+    function downloadRedactedLabImage() {
+      applyVisionLabRedaction();
+      const canvas = document.getElementById('vision-lab-canvas');
+      if (!canvas) return;
+      const dataUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `${visionLabState.currentDocKey}_expurge_pixels.png`;
+      a.click();
+    }
+
+    function exportVisionLabDetections(format) {
+      const doc = VISION_LAB_DOCUMENTS[visionLabState.currentDocKey];
+      const payload = {
+        document_id: doc.id,
+        title: doc.title,
+        engine_mode: visionLabState.engineMode,
+        confidence_threshold: visionLabState.confThresh,
+        model_metadata: {
+          name: "signature_yolov8n_v1",
+          architecture: "YOLOv8n",
+          license: "AGPL-3.0",
+          weights: "signature_yolov8n_best.pt",
+          export_onnx: "signature_yolov8n_best.onnx"
+        },
+        image_dimensions: visionLabState.docDimensions,
+        detections: visionLabState.currentDetections.map(d => ({
+          id: d.id,
+          category: d.category,
+          confidence: d.conf,
+          status: d.status,
+          bbox_pixel: { x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2, width: d.x2 - d.x1, height: d.y2 - d.y1 },
+          bbox_normalized: {
+            x: Number((d.x1 / 800).toFixed(4)),
+            y: Number((d.y1 / 1100).toFixed(4)),
+            width: Number(((d.x2 - d.x1) / 800).toFixed(4)),
+            height: Number(((d.y2 - d.y1) / 1100).toFixed(4))
+          }
+        })),
+        exported_at: new Date().toISOString()
+      };
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `predictions_vision_lab_${doc.id}.json`;
+      a.click();
     }
 
     // Initialisation au chargement
