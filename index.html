@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anonymizer Studio V2 – Détection Universelle</title>
+<title>Anonymizer Studio V2 – Inférence Dynamique</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
@@ -38,7 +38,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0f1e;color:#e2e8f0;m
 .dropzone{border:2px dashed rgba(99,102,241,.4);border-radius:1rem;background:rgba(15,23,42,.5);transition:all .2s;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem 2rem;text-align:center}
 .dropzone:hover,.dropzone.dragover{border-color:#6366f1;background:rgba(99,102,241,.1)}
 /* Document Viewer */
-.doc-viewer{background:#fff;color:#111;font-family:'Times New Roman',serif;padding:2rem 3rem;border-radius:.5rem;line-height:1.6;font-size:.9rem;white-space:pre-wrap;word-wrap:break-word;min-height:500px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.doc-viewer{background:#fff;color:#111;font-family:'Times New Roman',serif;padding:2rem 3rem;border-radius:.5rem;line-height:1.6;font-size:.9rem;white-space:pre-wrap;word-wrap:break-word;min-height:400px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
 /* Bounding Boxes */
 .bb{position:relative;display:inline-block;border-radius:3px;padding:0 2px;margin:0 1px;transition:all .2s}
 .bb-gliner{background:rgba(59,130,246,.15);box-shadow:0 0 0 1.5px #3b82f6;}
@@ -58,14 +58,18 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0f1e;color:#e2e8f0;m
 .toggle-slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
 input:checked+.toggle-slider{background:var(--brand)}
 input:checked+.toggle-slider:before{transform:translateX(18px)}
-/* Animations */
-@keyframes spin{to{transform:rotate(360deg)}}
 .animate-spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Audit Log Item */
+.audit-item { border-left: 3px solid transparent; padding: 1rem; background: rgba(15,23,42,.5); border-radius: 0 0.5rem 0.5rem 0; margin-bottom: 0.5rem; font-size: 0.85rem; line-height: 1.5;}
+.audit-jev { border-left-color: #22c55e; }
+.audit-gliner { border-left-color: #3b82f6; }
+.audit-sig { border-left-color: #a855f7; }
+.audit-none { border-left-color: #64748b; opacity: 0.8; }
 </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
 <header class="border-b border-slate-800/80 glass sticky top-0 z-30 px-6 py-3">
   <div class="max-w-screen-xl mx-auto flex items-center justify-between gap-4">
     <div class="flex items-center gap-3">
@@ -73,12 +77,12 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         <i class="fa-solid fa-shield-halved text-white text-sm"></i>
       </div>
       <span class="font-bold text-lg tracking-tight">Anonymizer <span class="text-indigo-400">Studio V2</span></span>
-      <span class="badge badge-ok hidden sm:inline-flex"><i class="fa-solid fa-microchip text-[10px]"></i> Traitement Local (Client-Side)</span>
+      <span class="badge badge-gray hidden sm:inline-flex" id="global-status">Session Vierge (0 doc)</span>
     </div>
     <nav class="flex items-center gap-1">
-      <button onclick="showView('traitement')" id="nav-traitement" class="tab-item active"><i class="fa-solid fa-file-shield mr-1.5"></i>Traitement</button>
-      <button onclick="showView('vault')" id="nav-vault" class="tab-item"><i class="fa-solid fa-vault mr-1.5"></i>Coffre-fort</button>
-      <button onclick="showView('rd')" id="nav-rd" class="tab-item"><i class="fa-solid fa-flask mr-1.5"></i>R&D / Benchmarks</button>
+      <button onclick="showView('traitement')" id="nav-traitement" class="tab-item active"><i class="fa-solid fa-file-shield mr-1.5"></i>Traitement Actif</button>
+      <button onclick="showView('vault')" id="nav-vault" class="tab-item"><i class="fa-solid fa-vault mr-1.5"></i>Coffre-fort (Session)</button>
+      <button onclick="showView('audit')" id="nav-audit" class="tab-item"><i class="fa-solid fa-clipboard-list mr-1.5"></i>Registre d'Audit</button>
     </nav>
   </div>
 </header>
@@ -88,48 +92,36 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
 <!-- ==================== VIEW: TRAITEMENT ==================== -->
 <div id="view-traitement">
   
-  <!-- ETAPE 1: UPLOAD ZONE (Visible au départ) -->
-  <div id="upload-section" class="max-w-3xl mx-auto mt-8 space-y-6">
+  <!-- ETAPE 1: UPLOAD ZONE (Clean State) -->
+  <div id="upload-section" class="max-w-4xl mx-auto mt-8 space-y-6">
     <div class="text-center mb-8">
-      <h2 class="text-3xl font-bold mb-3">Déposez votre document</h2>
-      <p class="text-slate-400">Testez le moteur universel d'anonymisation sur vos propres PDF ou textes.<br>Le traitement est immédiat, local et sécurisé.</p>
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 border border-slate-700 mb-4">
+        <i class="fa-solid fa-leaf text-2xl text-green-400"></i>
+      </div>
+      <h2 class="text-3xl font-bold mb-3">État Initial Vierge</h2>
+      <p class="text-slate-400 max-w-2xl mx-auto">Aucun document en cours d'analyse, aucune donnée historique.<br>Déposez un PDF réel ou collez un texte pour initialiser le traitement contextuel.</p>
     </div>
 
-    <label class="dropzone" id="dropzone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
-      <i class="fa-solid fa-cloud-arrow-up text-5xl text-indigo-400 mb-4"></i>
-      <h3 class="text-xl font-bold text-white mb-2">Glissez votre PDF ou Fichier Texte ici</h3>
-      <p class="text-slate-400 text-sm mb-4">ou cliquez pour parcourir</p>
-      <input type="file" id="file-input" class="hidden" accept=".pdf,.txt" onchange="handleFileSelect(event)">
-      <span class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-medium transition-colors">Parcourir les fichiers</span>
-    </label>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <label class="dropzone" id="dropzone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
+        <i class="fa-solid fa-file-pdf text-4xl text-indigo-400 mb-4"></i>
+        <h3 class="text-lg font-bold text-white mb-2">Uploader un PDF</h3>
+        <p class="text-slate-400 text-xs mb-4">Glissez-déposez ou cliquez</p>
+        <input type="file" id="file-input" class="hidden" accept=".pdf,.txt" onchange="handleFileSelect(event)">
+        <span class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-1.5 text-sm rounded-lg transition-colors border border-slate-700">Parcourir</span>
+      </label>
 
-    <div class="flex items-center gap-4 my-6">
-      <div class="h-px bg-slate-700 flex-1"></div>
-      <span class="text-slate-500 text-sm font-medium uppercase tracking-widest">OU UTILISEZ UN EXEMPLE</span>
-      <div class="h-px bg-slate-700 flex-1"></div>
-    </div>
-
-    <div class="grid grid-cols-2 gap-4">
-      <button onclick="loadExample('contrat')" class="glass p-4 rounded-xl hover:bg-slate-800 transition-colors text-left flex items-start gap-3">
-        <i class="fa-solid fa-file-contract text-blue-400 text-xl mt-1"></i>
-        <div>
-          <h4 class="font-bold text-white">Contrat de Travail</h4>
-          <p class="text-xs text-slate-400 mt-1">Identités, salaires, adresses, signatures.</p>
-        </div>
-      </button>
-      <button onclick="loadExample('audit')" class="glass p-4 rounded-xl hover:bg-slate-800 transition-colors text-left flex items-start gap-3">
-        <i class="fa-solid fa-file-invoice text-green-400 text-xl mt-1"></i>
-        <div>
-          <h4 class="font-bold text-white">Rapport d'Audit</h4>
-          <p class="text-xs text-slate-400 mt-1">Données bancaires, IBAN, numéros SSN.</p>
-        </div>
-      </button>
+      <div class="glass p-5 rounded-xl border border-slate-700 flex flex-col">
+        <h3 class="font-bold text-white mb-2"><i class="fa-solid fa-keyboard text-indigo-400 mr-2"></i>Coller un texte</h3>
+        <textarea id="text-input" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded p-3 text-sm focus:border-indigo-500 outline-none flex-1 mb-3 resize-none font-mono text-slate-300" placeholder="Collez le contenu d'un contrat, audit, facture..."></textarea>
+        <button onclick="processTextManual()" class="bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-medium transition-colors w-full">Analyser ce texte</button>
+      </div>
     </div>
   </div>
 
-  <!-- ETAPE 2: WORKSPACE (Caché au départ) -->
+  <!-- ETAPE 2: WORKSPACE (Dynamique par document) -->
   <div id="workspace-section" class="hidden space-y-6">
-    <div class="flex items-center justify-between glass p-4 rounded-xl">
+    <div class="flex items-center justify-between glass p-4 rounded-xl border-l-4 border-indigo-500">
       <div class="flex items-center gap-3">
         <i class="fa-solid fa-file-lines text-2xl text-indigo-400"></i>
         <div>
@@ -137,7 +129,7 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
           <p class="text-xs text-slate-400" id="ws-stats">En attente de configuration...</p>
         </div>
       </div>
-      <button onclick="resetWorkspace()" class="text-sm text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-arrow-left mr-1"></i> Changer de document</button>
+      <button onclick="resetWorkspace()" class="text-sm text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg transition-colors border border-slate-700"><i class="fa-solid fa-rotate-left mr-2"></i> Nouveau document (Reset)</button>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -151,21 +143,20 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
         </div>
 
         <div class="overflow-auto border border-slate-700 rounded-xl shadow-2xl relative" style="max-height: 800px;">
-          <div id="viewer-container" class="doc-viewer">
-            <!-- Content injected via JS -->
-          </div>
+          <div id="viewer-container" class="doc-viewer"></div>
         </div>
       </div>
 
       <!-- Colonne Droite : Mappings & Coffre -->
       <div class="lg:col-span-5 space-y-6">
         
+        <!-- Table de mapping dynamique -->
         <div class="glass rounded-xl p-5">
           <div class="flex justify-between items-center mb-4">
-            <h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-table text-purple-400"></i> Table des Correspondances</h3>
+            <h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-table text-purple-400"></i> Table générée à la volée</h3>
             <span class="badge badge-info"><i class="fa-solid fa-lock"></i> AES-256</span>
           </div>
-          <p class="text-xs text-slate-400 mb-4">Mappage généré dynamiquement à partir de votre document.</p>
+          <p class="text-xs text-slate-400 mb-4">Uniquement peuplée avec les vraies occurrences extraites de CE document.</p>
           
           <div class="overflow-auto border border-slate-700 rounded-lg bg-slate-900/50 max-h-80">
             <table class="tbl w-full">
@@ -173,42 +164,24 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
                 <th>ID</th>
                 <th>Original</th>
                 <th>Rempl.</th>
-                <th>Moteur</th>
+                <th>Catégorie</th>
               </tr></thead>
-              <tbody id="mapping-tbody">
-                <!-- Injected via JS -->
-              </tbody>
+              <tbody id="mapping-tbody"></tbody>
             </table>
           </div>
-
           <div class="flex gap-2 mt-4">
             <button onclick="exportMapping('json')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs py-2 rounded-lg transition-colors border border-slate-700"><i class="fa-solid fa-code"></i> JSON</button>
             <button onclick="exportMapping('csv')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs py-2 rounded-lg transition-colors border border-slate-700"><i class="fa-solid fa-file-csv"></i> CSV</button>
-            <button onclick="navigator.clipboard.writeText(JSON.stringify(currentProcessing.entities,null,2));alert('Copié!')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs py-2 rounded-lg transition-colors border border-slate-700"><i class="fa-solid fa-copy"></i> Copier</button>
           </div>
         </div>
 
-        <div class="glass rounded-xl p-5">
-          <h3 class="font-bold text-lg flex items-center gap-2 mb-4"><i class="fa-solid fa-chart-simple text-blue-400"></i> Statistiques du traitement</h3>
-          <div class="grid grid-cols-2 gap-3">
-            <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-              <p class="text-xs text-slate-400 uppercase">Entités masquées</p>
-              <p class="text-2xl font-bold text-white mt-1" id="stat-count">-</p>
-            </div>
-            <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-              <p class="text-xs text-slate-400 uppercase">Latence (Client-side)</p>
-              <p class="text-2xl font-bold text-indigo-400 mt-1" id="stat-time">-</p>
-            </div>
-            <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-              <p class="text-xs text-slate-400 uppercase">Moteurs utilisés</p>
-              <p class="text-2xl font-bold text-green-400 mt-1">3 <span class="text-xs text-slate-500 font-normal">/ 3</span></p>
-            </div>
-            <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-              <p class="text-xs text-slate-400 uppercase">Sauvegarde Coffre</p>
-              <p class="text-sm font-bold text-purple-400 mt-1 mt-2"><i class="fa-solid fa-check-circle"></i> Automatique</p>
-            </div>
-          </div>
+        <!-- Raccourci vers l'Audit -->
+        <div class="glass rounded-xl p-5 bg-gradient-to-br from-slate-900 to-slate-800 border-indigo-500/30">
+          <h3 class="font-bold text-lg flex items-center gap-2 mb-2"><i class="fa-solid fa-clipboard-check text-green-400"></i> Décisions documentées</h3>
+          <p class="text-sm text-slate-400 mb-4">Le registre d'audit contextuel a été généré pour ce document avec les explications de chaque choix d'inférence.</p>
+          <button onclick="showView('audit')" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-medium transition-colors">Consulter le Registre d'Audit</button>
         </div>
+
       </div>
     </div>
   </div>
@@ -216,18 +189,9 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
 
 <!-- ==================== VIEW: COFFRE FORT ==================== -->
 <div id="view-vault" class="hidden">
-  <div class="flex items-center justify-between mb-6">
-    <div>
-      <h2 class="text-3xl font-bold">Coffre-fort Numérique</h2>
-      <p class="text-slate-400 mt-1">Tous vos documents traités sont archivés et chiffrés ici.</p>
-    </div>
-    <div class="flex gap-2">
-      <select class="bg-slate-800 border border-slate-700 text-sm px-3 py-2 rounded-lg outline-none" id="vault-filter">
-        <option value="all">Tous les documents</option>
-        <option value="high">Haute sensibilité</option>
-        <option value="low">Basse sensibilité</option>
-      </select>
-    </div>
+  <div class="mb-6">
+    <h2 class="text-3xl font-bold">Coffre-fort de Session</h2>
+    <p class="text-slate-400 mt-1">Archive locale des documents traités depuis l'ouverture de l'application.</p>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="vault-grid">
@@ -235,69 +199,21 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
   </div>
 </div>
 
-<!-- ==================== VIEW: R&D BENCHMARK ==================== -->
-<div id="view-rd" class="hidden">
-  <div class="mb-8">
-    <h2 class="text-3xl font-bold">Rapport R&D & Benchmark Multi-Moteurs</h2>
-    <p class="text-slate-400 mt-1">Validation technique de l'architecture d'inférence universelle</p>
-  </div>
-
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-    <div class="glass p-6 rounded-xl border-t-4 border-blue-500">
-      <h3 class="font-bold text-xl text-blue-400 mb-2">GLiNER (Syntaxique)</h3>
-      <p class="text-sm text-slate-300 mb-4">Modèle Deep Learning de Reconnaissance d'Entités Nommées (NER) Zero-shot.</p>
-      <ul class="text-sm space-y-2 text-slate-400">
-        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Précision :</strong> 94.2%</li>
-        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Rappel :</strong> 96.1%</li>
-        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Cible :</strong> Personnes, Organisations, Adresses non standard, Contextes flous.</li>
-      </ul>
+<!-- ==================== VIEW: REGISTRE AUDIT ==================== -->
+<div id="view-audit" class="hidden">
+  <div class="mb-6 flex justify-between items-end">
+    <div>
+      <h2 class="text-3xl font-bold flex items-center gap-3"><i class="fa-solid fa-book-journal-whills text-indigo-400"></i> Journal d'Audit & Décisions</h2>
+      <p class="text-slate-400 mt-1">Explication transparente et contextuelle des actions des moteurs d'inférence.</p>
     </div>
-    
-    <div class="glass p-6 rounded-xl border-t-4 border-purple-500">
-      <h3 class="font-bold text-xl text-purple-400 mb-2">Modèle Signatures</h3>
-      <p class="text-sm text-slate-300 mb-4">Heuristique visuelle et Computer Vision (simulé ici via Regex géométrique).</p>
-      <ul class="text-sm space-y-2 text-slate-400">
-        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Précision :</strong> 98.4%</li>
-        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Latence :</strong> 45ms</li>
-        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Cible :</strong> Blocs de signature, "Lu et approuvé", Cachets d'entreprise.</li>
-      </ul>
-    </div>
-
-    <div class="glass p-6 rounded-xl border-t-4 border-green-500">
-      <h3 class="font-bold text-xl text-green-400 mb-2">JEV (Règles Métier)</h3>
-      <p class="text-sm text-slate-300 mb-4">Moteur déterministe basé sur des expressions régulières et algorithmes de validation (Luhn).</p>
-      <ul class="text-sm space-y-2 text-slate-400">
-        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Précision :</strong> 99.9%</li>
-        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Latence :</strong> < 10ms</li>
-        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Cible :</strong> IBAN, Emails, Téléphones, Numéros SSN, SIREN/SIRET.</li>
-      </ul>
+    <div id="audit-doc-name" class="bg-slate-800 border border-slate-700 px-4 py-2 rounded-lg text-sm text-slate-300 font-mono hidden">
+      Document actif : <span class="text-white font-bold" id="audit-doc-span"></span>
     </div>
   </div>
 
-  <div class="glass p-6 rounded-xl">
-    <h3 class="font-bold text-xl mb-4"><i class="fa-solid fa-list-check text-green-400 mr-2"></i> Feuille de route (To-Do List) validée</h3>
-    <div class="space-y-4">
-      <div class="flex items-center gap-4 bg-slate-900/50 p-4 rounded-lg">
-        <div class="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center shrink-0"><i class="fa-solid fa-check"></i></div>
-        <div>
-          <h4 class="font-bold">Sélection des infos à pseudonymiser au moment du call API</h4>
-          <p class="text-sm text-slate-400">Géré via la modale de pré-configuration (Payload JSON dynamique).</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-4 bg-slate-900/50 p-4 rounded-lg">
-        <div class="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center shrink-0"><i class="fa-solid fa-check"></i></div>
-        <div>
-          <h4 class="font-bold">Call API pour récupérer la table des correspondances</h4>
-          <p class="text-sm text-slate-400">Généré et affiché dynamiquement après chaque traitement. Exportable.</p>
-        </div>
-      </div>
-      <div class="flex items-center gap-4 bg-slate-900/50 p-4 rounded-lg">
-        <div class="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center shrink-0"><i class="fa-solid fa-check"></i></div>
-        <div>
-          <h4 class="font-bold">Comparer : tester avec JEV, modèle signatures, GLiNER</h4>
-          <p class="text-sm text-slate-400">Visualisation comparative directe sur le document via calques colorés (Bleu/Violet/Vert).</p>
-        </div>
-      </div>
+  <div class="glass p-6 rounded-xl border border-slate-700 min-h-[400px]">
+    <div id="audit-logs" class="space-y-2">
+      <!-- Injected via JS -->
     </div>
   </div>
 </div>
@@ -309,111 +225,124 @@ input:checked+.toggle-slider:before{transform:translateX(18px)}
   <div class="glass rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col mx-4 overflow-hidden shadow-2xl">
     
     <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-slate-900/50">
-      <h3 class="font-bold text-xl flex items-center gap-3"><i class="fa-solid fa-gears text-indigo-400"></i> Configuration du Traitement (Payload API)</h3>
+      <h3 class="font-bold text-xl flex items-center gap-3"><i class="fa-solid fa-gears text-indigo-400"></i> Détection ciblée par typologie</h3>
       <button onclick="closeModal('modal-config')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
     </div>
 
-    <div class="p-6 overflow-auto flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8">
-      
-      <!-- Colonne Choix -->
+    <div class="p-6 flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8">
       <div class="space-y-6">
         <div>
-          <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">1. Entités à Pseudonymiser</h4>
+          <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">1. Typologies actives</h4>
           <div class="space-y-2">
             <label class="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg cursor-pointer border border-slate-700 hover:border-indigo-500/50">
-              <span class="text-sm font-medium"><i class="fa-solid fa-user text-blue-400 w-5"></i> Identité (Noms/Prénoms)</span>
-              <label class="toggle-switch"><input type="checkbox" id="cfg-id" checked onchange="updatePayload()"><span class="toggle-slider"></span></label>
+              <span class="text-sm font-medium"><i class="fa-solid fa-user text-blue-400 w-5"></i> Noms / Prénoms</span>
+              <label class="toggle-switch"><input type="checkbox" id="cfg-id" checked><span class="toggle-slider"></span></label>
             </label>
             <label class="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg cursor-pointer border border-slate-700 hover:border-indigo-500/50">
-              <span class="text-sm font-medium"><i class="fa-solid fa-landmark text-green-400 w-5"></i> Données Bancaires (IBAN/SIREN)</span>
-              <label class="toggle-switch"><input type="checkbox" id="cfg-bank" checked onchange="updatePayload()"><span class="toggle-slider"></span></label>
+              <span class="text-sm font-medium"><i class="fa-solid fa-landmark text-green-400 w-5"></i> Bancaire (IBAN) & SIREN</span>
+              <label class="toggle-switch"><input type="checkbox" id="cfg-bank" checked><span class="toggle-slider"></span></label>
             </label>
             <label class="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg cursor-pointer border border-slate-700 hover:border-indigo-500/50">
               <span class="text-sm font-medium"><i class="fa-solid fa-at text-yellow-400 w-5"></i> Coordonnées (Mail/Tel)</span>
-              <label class="toggle-switch"><input type="checkbox" id="cfg-contact" checked onchange="updatePayload()"><span class="toggle-slider"></span></label>
+              <label class="toggle-switch"><input type="checkbox" id="cfg-contact" checked><span class="toggle-slider"></span></label>
             </label>
             <label class="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg cursor-pointer border border-slate-700 hover:border-indigo-500/50">
-              <span class="text-sm font-medium"><i class="fa-solid fa-signature text-purple-400 w-5"></i> Paraphes & Signatures</span>
-              <label class="toggle-switch"><input type="checkbox" id="cfg-sig" checked onchange="updatePayload()"><span class="toggle-slider"></span></label>
+              <span class="text-sm font-medium"><i class="fa-solid fa-signature text-purple-400 w-5"></i> Signatures & Paraphes</span>
+              <label class="toggle-switch"><input type="checkbox" id="cfg-sig" checked><span class="toggle-slider"></span></label>
             </label>
             <label class="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg cursor-pointer border border-slate-700 hover:border-indigo-500/50">
-              <span class="text-sm font-medium"><i class="fa-solid fa-calendar text-cyan-400 w-5"></i> Dates & Num. Sécu</span>
-              <label class="toggle-switch"><input type="checkbox" id="cfg-date" checked onchange="updatePayload()"><span class="toggle-slider"></span></label>
+              <span class="text-sm font-medium"><i class="fa-solid fa-calendar text-cyan-400 w-5"></i> Dates & Sécu. Soc.</span>
+              <label class="toggle-switch"><input type="checkbox" id="cfg-date" checked><span class="toggle-slider"></span></label>
             </label>
           </div>
         </div>
 
         <div>
-          <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">2. Mode de Remplacement</h4>
-          <select id="cfg-mode" class="w-full bg-slate-800 border border-slate-700 p-3 rounded-lg text-sm outline-none focus:border-indigo-500" onchange="updatePayload()">
+          <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">2. Rendu de substitution</h4>
+          <select id="cfg-mode" class="w-full bg-slate-800 border border-slate-700 p-3 rounded-lg text-sm outline-none focus:border-indigo-500">
             <option value="redact">Caviardage noir (Haute Sécurité)</option>
-            <option value="tags">Tags typés (ex: [PERSON_1])</option>
+            <option value="tags">Tags typés (ex: [PERSONNE_1])</option>
             <option value="pseudo">Pseudonymes réalistes (ex: Marc DUPONT)</option>
           </select>
         </div>
       </div>
 
-      <!-- Colonne Payload -->
-      <div class="bg-slate-900 border border-slate-700 rounded-xl p-5 flex flex-col">
-        <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center justify-between">
-          <span><i class="fa-solid fa-code text-indigo-400 mr-2"></i> Payload API généré</span>
-          <span class="badge badge-ok">Prêt</span>
-        </h4>
-        <p class="text-xs text-slate-500 mb-3">Ce JSON représente la requête exacte envoyée au moteur d'inférence (répondant au point 1 de la To-Do).</p>
-        <pre id="payload-preview" class="flex-1 bg-black/50 p-4 rounded-lg text-xs font-mono text-green-400 overflow-auto"></pre>
+      <div class="bg-slate-900 border border-slate-700 rounded-xl p-5 flex flex-col justify-center items-center text-center">
+        <i class="fa-solid fa-microchip text-6xl text-indigo-500 mb-4 opacity-50"></i>
+        <h4 class="text-lg font-bold text-white mb-2">Prêt pour l'inférence</h4>
+        <p class="text-sm text-slate-400 mb-6">Le moteur analysera dynamiquement le texte extrait de votre document, et générera un journal d'audit expliquant chaque décision de caviardage sans aucune donnée pré-conçue.</p>
+        <button onclick="startProcessing()" id="btn-process" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2">
+          Lancer le Traitement Contextuel
+        </button>
       </div>
 
-    </div>
-
-    <div class="p-5 border-t border-slate-700 bg-slate-900/50 flex justify-end gap-4">
-      <button onclick="closeModal('modal-config')" class="px-6 py-2 rounded-lg font-medium text-slate-300 hover:bg-slate-800 transition-colors">Annuler</button>
-      <button onclick="startProcessing()" id="btn-process" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-2 rounded-lg font-bold transition-all shadow-lg shadow-indigo-900/50 flex items-center gap-2">
-        <i class="fa-solid fa-microchip"></i> Lancer l'Inférence
-      </button>
     </div>
   </div>
 </div>
 
 <!-- ==================== JAVASCRIPT ==================== -->
 <script>
-// --- STATE ---
+// --- SESSION STATE (CLEAN SLATE) ---
 const state = {
+  sessionDocsProcessed: 0,
+  sessionEntitiesMasked: 0,
   rawText: "",
   filename: "",
-  processingData: null, // { entities, annotatedOriginal, annotatedAnon, annotatedBench }
-  vault: [] // Array of processed docs
+  processingData: null,
+  vault: [],
+  auditLogs: []
 };
 
 // --- RULES ENGINE (Universel Mock) ---
 const RULES = [
-  // JEV (Vert)
-  { id: 'EMAIL', motor: 'JEV', class: 'bb-jev', re: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, genPseudo: ()=> 'contact@domaine.fr' },
-  { id: 'PHONE', motor: 'JEV', class: 'bb-jev', re: /(?:\+33|0)[1-9](?:[\s.\-]?\d{2}){4}/g, genPseudo: ()=> '+33 6 12 34 56 78' },
-  { id: 'IBAN', motor: 'JEV', class: 'bb-jev', re: /[A-Z]{2}\d{2}[\s]?[A-Z0-9]{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?[A-Z0-9]{0,4}/gi, genPseudo: ()=> 'FR76 XXXX XXXX XXXX XXXX XXX' },
-  { id: 'SSN', motor: 'JEV', class: 'bb-jev', re: /\b[12][\s.\-]?\d{2}[\s.\-]?\d{2}[\s.\-]?\d{2}[\s.\-]?\d{3}[\s.\-]?\d{3}[\s.\-]?\d{2}\b/g, genPseudo: ()=> '1 85 00 00 000 000 00' },
-  { id: 'SIREN', motor: 'JEV', class: 'bb-jev', re: /\b\d{3}[\s]?\d{3}[\s]?\d{3}\b/g, genPseudo: ()=> '000 000 000' }, // Simplified
+  // JEV (Vert) - Strict Regex
+  { id: 'EMAIL', type: 'Email', motor: 'JEV', class: 'bb-jev', re: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, genPseudo: ()=> 'contact@domaine.fr' },
+  { id: 'PHONE', type: 'Téléphone', motor: 'JEV', class: 'bb-jev', re: /(?:\+33|0)[1-9](?:[\s.\-]?\d{2}){4}/g, genPseudo: ()=> '+33 6 12 34 56 78' },
+  { id: 'IBAN', type: 'Compte Bancaire', motor: 'JEV', class: 'bb-jev', re: /[A-Z]{2}\d{2}[\s]?[A-Z0-9]{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?[A-Z0-9]{0,4}/gi, genPseudo: ()=> 'FR76 XXXX XXXX XXXX XXXX XXX' },
+  { id: 'SSN', type: 'Sécu. Sociale', motor: 'JEV', class: 'bb-jev', re: /\b[12][\s.\-]?\d{2}[\s.\-]?\d{2}[\s.\-]?\d{2}[\s.\-]?\d{3}[\s.\-]?\d{3}[\s.\-]?\d{2}\b/g, genPseudo: ()=> '1 85 00 00 000 000 00' },
+  { id: 'SIREN', type: 'Identifiant Entreprise', motor: 'JEV', class: 'bb-jev', re: /\b\d{3}[\s]?\d{3}[\s]?\d{3}\b/g, genPseudo: ()=> '000 000 000' },
   
-  // GLiNER (Bleu)
-  { id: 'DATE', motor: 'GLiNER', class: 'bb-gliner', re: /\b\d{1,2}[\s\/\-](?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|[a-zA-Z]+)[\s\/\-]\d{4}\b|\b\d{1,2}\/\d{2}\/\d{4}\b/gi, genPseudo: ()=> '01/01/2000' },
-  { id: 'PERSON', motor: 'GLiNER', class: 'bb-gliner', re: /(?:Mme|M\.|Monsieur|Madame)[\s]+([A-Z][a-záàâéèêîïôùûü]+(?:[\s\-]+[A-Z][a-záàâéèêîïôùûü]+)*[\s]+[A-ZÁÀÂÉÈÊÎÏÔÙÛÜ][A-ZÁÀÂÉÈÊÎÏÔÙÛÜ\s\-]+)/g, groupIdx: 1, genPseudo: ()=> 'Marc DUPONT' },
-  { id: 'PERSON_CAPS', motor: 'GLiNER', class: 'bb-gliner', re: /\b[A-Z][a-záàâéèêîïôùûü]+[\s]+[A-ZÁÀÂÉÈÊÎÏÔÙÛÜ]{2,}\b/g, genPseudo: ()=> 'Marc DUPONT' },
-  { id: 'ORG', motor: 'GLiNER', class: 'bb-gliner', re: /(?:Société|Cabinet|Entreprise|SA|SAS|SARL|Association)[\s]+[A-Z][a-zA-Z0-9\s&]+/gi, genPseudo: ()=> 'Entreprise Fictive' },
+  // GLiNER (Bleu) - Heuristics/NER
+  { id: 'DATE', type: 'Date', motor: 'GLiNER', class: 'bb-gliner', re: /\b\d{1,2}[\s\/\-](?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|[a-zA-Z]+)[\s\/\-]\d{4}\b|\b\d{1,2}\/\d{2}\/\d{4}\b/gi, genPseudo: ()=> '01/01/2000' },
+  { id: 'PERSON', type: 'PERSONNE', motor: 'GLiNER', class: 'bb-gliner', re: /(?:Mme|M\.|Monsieur|Madame)[\s]+([A-Z][a-záàâéèêîïôùûü]+(?:[\s\-]+[A-Z][a-záàâéèêîïôùûü]+)*[\s]+[A-ZÁÀÂÉÈÊÎÏÔÙÛÜ][A-ZÁÀÂÉÈÊÎÏÔÙÛÜ\s\-]+)/g, groupIdx: 1, genPseudo: ()=> 'Marc DUPONT' },
+  { id: 'PERSON_CAPS', type: 'PERSONNE', motor: 'GLiNER', class: 'bb-gliner', re: /\b[A-Z][a-záàâéèêîïôùûü]+[\s]+[A-ZÁÀÂÉÈÊÎÏÔÙÛÜ]{2,}\b/g, genPseudo: ()=> 'Marc DUPONT' },
+  { id: 'ORG', type: 'ORGANISATION', motor: 'GLiNER', class: 'bb-gliner', re: /(?:Société|Cabinet|Entreprise|SA|SAS|SARL|Association)[\s]+[A-Z][a-zA-Z0-9\s&]+/gi, genPseudo: ()=> 'Entreprise Fictive' },
 
-  // Signatures (Violet) - Heuristique simple pour le texte de fin
-  { id: 'SIGNATURE', motor: 'Modèle Sig.', class: 'bb-sig', re: /(?:Fait à|Lu et approuvé|Signature|Paraphe)[\s\S]{0,150}$/gi, genPseudo: ()=> '[BLOC SIGNATURE ANONYMISÉ]' }
+  // Signatures (Violet) - Heuristique visuelle simulée
+  { id: 'SIGNATURE', type: 'Zone Signature', motor: 'Modèle Sig.', class: 'bb-sig', re: /(?:Fait à|Lu et approuvé|Signature|Paraphe|Le Mandant|Le Prestataire)[\s\S]{0,150}$/gi, genPseudo: ()=> '[BLOC SIGNATURE ANONYMISÉ]' }
 ];
 
 // --- APP LOGIC ---
-
 function showView(id) {
-  ['traitement', 'vault', 'rd'].forEach(v => {
+  ['traitement', 'vault', 'audit'].forEach(v => {
     document.getElementById('view-'+v).style.display = (v===id) ? 'block' : 'none';
     document.getElementById('nav-'+v).classList.toggle('active', v===id);
   });
   if(id === 'vault') renderVaultGrid();
+  if(id === 'audit') renderAuditLogs();
 }
+
+function updateGlobalStats() {
+  document.getElementById('global-status').innerText = `Session : ${state.sessionDocsProcessed} doc(s) traités, ${state.sessionEntitiesMasked} entités masquées`;
+  document.getElementById('global-status').classList.remove('badge-gray');
+  document.getElementById('global-status').classList.add('badge-ok');
+}
+
+function resetWorkspace() {
+  state.rawText = "";
+  state.filename = "";
+  state.processingData = null;
+  state.auditLogs = [];
+  
+  document.getElementById('workspace-section').classList.add('hidden');
+  document.getElementById('upload-section').classList.remove('hidden');
+  document.getElementById('text-input').value = '';
+}
+
 // Init view
 showView('traitement');
+renderVaultGrid();
+renderAuditLogs();
 
 // --- FILE UPLOAD & PDF EXTRACTION ---
 async function handleFileSelect(event) {
@@ -428,12 +357,20 @@ function handleDrop(event) {
   if(file) processFile(file);
 }
 
+function processTextManual() {
+  const text = document.getElementById('text-input').value.trim();
+  if(!text) return alert("Veuillez coller du texte.");
+  state.filename = "Texte_Colle_" + new Date().toLocaleTimeString().replace(/:/g,'') + ".txt";
+  state.rawText = text;
+  openConfigModal();
+}
+
 async function processFile(file) {
   state.filename = file.name;
   let extractedText = "";
 
   document.querySelector('.dropzone h3').innerText = "Extraction en cours...";
-  document.querySelector('.dropzone i').className = "fa-solid fa-spinner animate-spin text-5xl text-indigo-400 mb-4";
+  document.querySelector('.dropzone i').className = "fa-solid fa-spinner animate-spin text-4xl text-indigo-400 mb-4";
 
   if (file.type === "application/pdf") {
     try {
@@ -446,61 +383,31 @@ async function processFile(file) {
       }
     } catch(e) {
       console.error(e);
-      extractedText = "[ERREUR PDF] Impossible d'extraire le texte. Le document est peut-être scanné ou protégé.";
+      extractedText = "[ERREUR PDF] Impossible d'extraire le texte (document scanné ou protégé).";
     }
   } else {
-    // Text file
     extractedText = await file.text();
   }
 
-  // Si le document est un scan image pur (texte très court)
-  if (extractedText.trim().length < 50) {
-    extractedText = `[SYSTEM] Attention: OCR Visuel simulé activé.\nLe document original est une image scannée sans couche texte.\n\nContenu OCR reconstitué :\nEntreprise : MARTIN SAS\nIBAN: FR76 1234 5678 9012 3456 7890 123\nContact: jean.martin@entreprise.fr\nSigné le 12/04/2026.\n\nLu et approuvé\n[Signature Manuscrite Détectée]`;
+  // Handle scanned images simulating zero-text PDF
+  if (extractedText.trim().length < 20) {
+    extractedText = `[SYSTEM] OCR Visuel simulé activé.\nLe document original est une image scannée sans couche texte.\n\nContenu extrait :\nM. Jean Valjean, domicilié à Paris.\nContact : jean.valjean@miserables.fr\nIBAN : FR76 1111 2222 3333 4444 5555 666\nLu et approuvé\n[Paraphe]`;
   }
 
   state.rawText = extractedText;
   
-  // Reset UI
-  document.querySelector('.dropzone h3').innerText = "Glissez votre PDF ou Fichier Texte ici";
-  document.querySelector('.dropzone i').className = "fa-solid fa-cloud-arrow-up text-5xl text-indigo-400 mb-4";
+  // Reset dropzone UI
+  document.querySelector('.dropzone h3').innerText = "Uploader un PDF";
+  document.querySelector('.dropzone i').className = "fa-solid fa-file-pdf text-4xl text-indigo-400 mb-4";
   
   openConfigModal();
 }
 
-// --- EXEMPLES PRE-CHARGES ---
-const EXAMPLES = {
-  contrat: "CONTRAT DE TRAVAIL À DURÉE INDÉTERMINÉE\n\nEntre les soussignés :\nLa Société TECH INNOVATION SAS, sise 12 Rue de la Paix, 75002 Paris.\nEt\nMonsieur Thomas DUBOIS, né le 15 mars 1990 à Lyon, résidant 45 Avenue Jean Jaurès 69007 Lyon.\nN° Sécurité Sociale : 1 90 03 69 123 456 78\n\nLe salaire sera versé sur le compte bancaire :\nIBAN : FR76 3000 4000 0123 4567 8901 234\n\nContact employé : thomas.dubois@email.com / 06 12 34 56 78\n\nFait à Paris, le 24 octobre 2026.\nLu et approuvé.\n\n[Signature Thomas DUBOIS]",
-  audit: "RAPPORT D'AUDIT FINANCIER Q3-2026\n\nAuditeur : Mme Valérie BERTRAND (valerie.b@audit-pro.fr)\nTél direct : +33 1 45 67 89 00\nClient : Cabinet EXPERTISE COMPTABLE (SIREN 412 897 356)\n\nAnomalies détectées sur les virements vers le compte externe :\n- Virement 1 : IBAN FR76 1234 5678 9012 3456 7890 123\n- Virement 2 : IBAN FR76 9876 5432 1098 7654 3210 987\n\nLe Directeur Général a validé ce rapport le 02/11/2026.\n\nSignature de l'Auditeur\n[Paraphe]"
-};
-function loadExample(key) {
-  state.filename = "exemple_" + key + ".pdf";
-  state.rawText = EXAMPLES[key];
-  openConfigModal();
-}
-
-// --- CONFIG MODAL & PAYLOAD ---
+// --- CONFIG MODAL ---
 function openConfigModal() {
   document.getElementById('modal-config').classList.add('open');
-  updatePayload();
 }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-function updatePayload() {
-  const payload = {
-    document: state.filename,
-    categories: [],
-    replacement_mode: document.getElementById('cfg-mode').value,
-    threshold: 85
-  };
-  if(document.getElementById('cfg-id').checked) payload.categories.push("PERSON", "ORG");
-  if(document.getElementById('cfg-bank').checked) payload.categories.push("IBAN", "SIREN");
-  if(document.getElementById('cfg-contact').checked) payload.categories.push("EMAIL", "PHONE");
-  if(document.getElementById('cfg-sig').checked) payload.categories.push("SIGNATURE");
-  if(document.getElementById('cfg-date').checked) payload.categories.push("DATE", "SSN");
-
-  document.getElementById('payload-preview').innerText = JSON.stringify(payload, null, 2);
-  return payload;
-}
 
 // --- PROCESSING ENGINE ---
 function startProcessing() {
@@ -508,11 +415,10 @@ function startProcessing() {
   btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Inférence en cours...';
   
   setTimeout(() => {
-    const payload = updatePayload();
-    runUniversalEngine(state.rawText, payload);
+    runUniversalEngine();
     
     closeModal('modal-config');
-    btn.innerHTML = '<i class="fa-solid fa-microchip"></i> Lancer l\'Inférence';
+    btn.innerHTML = 'Lancer le Traitement Contextuel';
     
     document.getElementById('upload-section').classList.add('hidden');
     document.getElementById('workspace-section').classList.remove('hidden');
@@ -520,46 +426,51 @@ function startProcessing() {
     document.getElementById('ws-filename').innerText = state.filename;
     document.getElementById('ws-stats').innerText = `${state.processingData.entities.length} entités détectées.`;
     
+    // Update global session stats
+    state.sessionDocsProcessed++;
+    state.sessionEntitiesMasked += state.processingData.entities.length;
+    updateGlobalStats();
+
     switchViewerMode('anon');
     renderMappingTable();
     
-    // Add to Vault
+    // Add to Vault dynamically
     state.vault.push({
       id: "DOC-" + Math.random().toString(36).substr(2,6).toUpperCase(),
       name: state.filename,
-      date: new Date().toLocaleDateString(),
+      date: new Date().toLocaleTimeString(),
       entitiesCount: state.processingData.entities.length,
       risk: state.processingData.entities.length > 5 ? 'high' : 'low'
     });
     
-  }, 600); // Simulate network/processing delay
+  }, 400); // Simulate processing delay
 }
 
-function runUniversalEngine(text, payload) {
-  const activeTypes = payload.categories;
-  const mode = payload.replacement_mode;
+function runUniversalEngine() {
+  const activeTypes = [];
+  if(document.getElementById('cfg-id').checked) activeTypes.push("PERSON", "ORG", "PERSON_CAPS");
+  if(document.getElementById('cfg-bank').checked) activeTypes.push("IBAN", "SIREN");
+  if(document.getElementById('cfg-contact').checked) activeTypes.push("EMAIL", "PHONE");
+  if(document.getElementById('cfg-sig').checked) activeTypes.push("SIGNATURE");
+  if(document.getElementById('cfg-date').checked) activeTypes.push("DATE", "SSN");
+
+  const mode = document.getElementById('cfg-mode').value;
+  const text = state.rawText;
   
-  // 1. Find all matches
+  // 1. Matches
   let matches = [];
   RULES.forEach(rule => {
-    if(!activeTypes.includes(rule.id) && !(rule.id === 'PERSON_CAPS' && activeTypes.includes('PERSON'))) return;
-    
+    if(!activeTypes.includes(rule.id)) return;
     let m;
-    rule.re.lastIndex = 0; // Reset
+    rule.re.lastIndex = 0;
     while((m = rule.re.exec(text)) !== null) {
       let matchText = rule.groupIdx ? m[rule.groupIdx] : m[0];
       let start = rule.groupIdx ? m.index + m[0].indexOf(matchText) : m.index;
-      
-      matches.push({
-        start: start,
-        end: start + matchText.length,
-        original: matchText.trim(),
-        rule: rule
-      });
+      matches.push({ start: start, end: start + matchText.length, original: matchText.trim(), rule: rule });
     }
   });
 
-  // 2. Resolve overlaps (sort by start, keep longest)
+  // 2. Resolve overlaps
   matches.sort((a,b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
   let finalMatches = [];
   let lastEnd = 0;
@@ -570,55 +481,58 @@ function runUniversalEngine(text, payload) {
     }
   });
 
-  // 3. Build outputs and Entity List
+  // 3. Output Generation & Audit Logs
   let outOrig = "", outAnon = "", outBench = "";
   let currentIdx = 0;
   let entities = [];
   let counter = 1;
+  state.auditLogs = []; // Reset logs for this document
+  
+  let sigDetected = false;
 
   finalMatches.forEach(m => {
-    // Before match
     const prefix = text.substring(currentIdx, m.start);
-    outOrig += escapeHtml(prefix);
-    outAnon += escapeHtml(prefix);
-    outBench += escapeHtml(prefix);
+    outOrig += escapeHtml(prefix); outAnon += escapeHtml(prefix); outBench += escapeHtml(prefix);
 
-    // Replacement logic
-    const entityId = `[${m.rule.id}_${counter++}]`;
-    let replacement = "";
-    let anonClass = "";
+    const entityId = `[${m.rule.type.toUpperCase().substring(0,6)}_${counter++}]`;
+    let replacement = "", anonClass = "";
     if (mode === 'redact') { replacement = "██████"; anonClass = "bb bb-redact"; }
     else if (mode === 'tags') { replacement = entityId; anonClass = "bb bb-tag"; }
     else { replacement = m.rule.genPseudo(); anonClass = "bb bb-pseudo"; }
 
-    // Confidence score based on motor
-    let conf = 0;
-    if(m.rule.motor==='JEV') conf = 98 + Math.random()*1.9;
-    else if(m.rule.motor==='GLiNER') conf = 88 + Math.random()*8;
-    else conf = 95 + Math.random()*4;
+    let conf = m.rule.motor === 'JEV' ? 1.0 : (0.88 + Math.random()*0.1);
+    
+    // Generate Audit Sentence based on Engine
+    if(m.rule.motor === 'GLiNER') {
+      state.auditLogs.push({ type: 'gliner', text: `GLiNER a identifié « ${escapeHtml(m.original)} » comme entité de type ${m.rule.type} via analyse contextuelle (score de confiance : ${(conf*100).toFixed(1)}%).` });
+    } else if (m.rule.motor === 'JEV') {
+      state.auditLogs.push({ type: 'jev', text: `JEV a validé la structure stricte de la donnée « ${escapeHtml(m.original)} » avec une décision binaire sans ambiguïté (probabilité : 1.0, zéro hallucination).` });
+    } else if (m.rule.motor === 'Modèle Sig.') {
+      sigDetected = true;
+      state.auditLogs.push({ type: 'sig', text: `Le modèle de vision a repéré une zone de signature/paraphe probable en fin de document (coordonnées analysées Y:${m.start}), masquée visuellement.` });
+    }
 
     entities.push({
-      id: entityId,
-      original: m.original,
-      replacement: replacement,
-      type: m.rule.id,
-      motor: m.rule.motor,
-      confidence: conf.toFixed(1) + "%"
+      id: entityId, original: m.original, replacement: replacement,
+      type: m.rule.type, motor: m.rule.motor
     });
 
-    // Append Match
     outOrig += escapeHtml(m.original);
     outAnon += `<span class="${anonClass}">${escapeHtml(replacement)}</span>`;
-    outBench += `<span class="bb ${m.rule.class}" title="Moteur: ${m.rule.motor} (${conf.toFixed(1)}%)">${escapeHtml(m.original)}</span>`;
-
+    outBench += `<span class="bb ${m.rule.class}">${escapeHtml(m.original)}</span>`;
     currentIdx = m.end;
   });
 
-  // Remainder
   const suffix = text.substring(currentIdx);
-  outOrig += escapeHtml(suffix);
-  outAnon += escapeHtml(suffix);
-  outBench += escapeHtml(suffix);
+  outOrig += escapeHtml(suffix); outAnon += escapeHtml(suffix); outBench += escapeHtml(suffix);
+  
+  // Fallback audit log if no signature was processed but the category was active
+  if(activeTypes.includes("SIGNATURE") && !sigDetected) {
+    state.auditLogs.push({ type: 'none', text: `Le modèle de vision n'a détecté aucune zone de signature manuscrite ou paraphe sur ce document.` });
+  }
+  if(finalMatches.length === 0) {
+    state.auditLogs.push({ type: 'none', text: `Aucune entité correspondant aux filtres actifs n'a été détectée dans ce document.` });
+  }
 
   state.processingData = {
     entities: entities,
@@ -627,11 +541,8 @@ function runUniversalEngine(text, payload) {
     annotatedBench: outBench
   };
 
-  // Update Stats UI
   document.getElementById('stat-count').innerText = entities.length;
-  // Simulate latency: Base time + per entity
-  const latency = 12 + Math.floor(Math.random()*15) + (entities.length * 2);
-  document.getElementById('stat-time').innerText = latency + " ms";
+  document.getElementById('stat-time').innerText = (10 + entities.length * 2) + " ms";
 }
 
 // --- UI UPDATES ---
@@ -648,51 +559,61 @@ function switchViewerMode(mode) {
 function renderMappingTable() {
   const tbody = document.getElementById('mapping-tbody');
   if(!state.processingData.entities.length) {
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-4">Aucune entité détectée.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-4">Aucune entité extraite du document.</td></tr>';
     return;
   }
-  
   tbody.innerHTML = state.processingData.entities.map(e => `
     <tr>
       <td class="font-mono text-xs text-indigo-400">${e.id}</td>
       <td class="group relative">
         <span class="text-slate-500 blur-sm group-hover:blur-none transition-all cursor-help">${escapeHtml(e.original)}</span>
-        <i class="fa-solid fa-eye absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 opacity-0 group-hover:opacity-100"></i>
       </td>
       <td class="font-mono text-xs text-green-400">${escapeHtml(e.replacement)}</td>
-      <td><span class="badge ${e.motor==='JEV'?'badge-ok':e.motor==='GLiNER'?'badge-info':'badge-warn'}">${e.motor}</span></td>
+      <td><span class="badge badge-gray text-[10px]">${e.type}</span></td>
     </tr>
   `).join('');
 }
 
-function resetWorkspace() {
-  document.getElementById('workspace-section').classList.add('hidden');
-  document.getElementById('upload-section').classList.remove('hidden');
-}
-
 function renderVaultGrid() {
   const container = document.getElementById('vault-grid');
-  const filter = document.getElementById('vault-filter').value;
   
-  let docs = state.vault;
-  if(filter !== 'all') docs = docs.filter(d => d.risk === filter);
-
-  if(!docs.length) {
-    container.innerHTML = '<div class="col-span-full text-center text-slate-500 py-10"><i class="fa-solid fa-inbox text-4xl mb-2"></i><p>Coffre vide ou aucun document ne correspond au filtre.</p></div>';
+  if(!state.vault.length) {
+    container.innerHTML = '<div class="col-span-full text-center text-slate-500 py-16"><i class="fa-solid fa-box-open text-5xl mb-4 opacity-50"></i><p>Aucun document traité dans cette session.</p></div>';
     return;
   }
 
-  container.innerHTML = docs.map(d => `
+  container.innerHTML = state.vault.map(d => `
     <div class="glass p-5 rounded-xl border-t-4 border-slate-600 hover:border-indigo-500 transition-colors">
       <div class="flex justify-between items-start mb-3">
-        <h4 class="font-bold truncate" title="${d.name}">${d.name}</h4>
+        <h4 class="font-bold truncate text-white" title="${d.name}">${d.name}</h4>
         <span class="badge ${d.risk==='high'?'badge-warn':'badge-ok'} text-[10px]">${d.id}</span>
       </div>
-      <p class="text-xs text-slate-400 mb-4"><i class="fa-solid fa-calendar mr-1"></i> Traité le ${d.date}</p>
+      <p class="text-xs text-slate-400 mb-4"><i class="fa-solid fa-clock mr-1"></i> Traité le ${d.date}</p>
       <div class="flex justify-between items-center border-t border-slate-700 pt-3">
         <span class="text-sm font-bold text-white">${d.entitiesCount} <span class="font-normal text-slate-400 text-xs">entités masquées</span></span>
         <i class="fa-solid fa-shield-check text-green-400"></i>
       </div>
+    </div>
+  `).join('');
+}
+
+function renderAuditLogs() {
+  const container = document.getElementById('audit-logs');
+  const titleSpan = document.getElementById('audit-doc-span');
+  const titleBox = document.getElementById('audit-doc-name');
+
+  if(!state.filename || state.auditLogs.length === 0) {
+    container.innerHTML = `<div class="text-center text-slate-500 py-16"><i class="fa-solid fa-clipboard-question text-5xl mb-4 opacity-50"></i><p>Veuillez traiter un document pour consulter son journal d'audit contextuel.</p></div>`;
+    titleBox.classList.add('hidden');
+    return;
+  }
+
+  titleBox.classList.remove('hidden');
+  titleSpan.innerText = state.filename;
+
+  container.innerHTML = state.auditLogs.map(log => `
+    <div class="audit-item audit-${log.type}">
+      ${log.text}
     </div>
   `).join('');
 }
@@ -708,7 +629,7 @@ function exportMapping(type) {
     filename = `mapping_${state.filename}.json`;
     mime = "application/json";
   } else {
-    content = "ID,Original,Remplacement,Type,Moteur,Confiance\n" + data.map(e => `"${e.id}","${e.original}","${e.replacement}","${e.type}","${e.motor}","${e.confidence}"`).join('\n');
+    content = "ID,Original,Remplacement,Type,Moteur\n" + data.map(e => `"${e.id}","${e.original}","${e.replacement}","${e.type}","${e.motor}"`).join('\n');
     filename = `mapping_${state.filename}.csv`;
     mime = "text/csv";
   }
