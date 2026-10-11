@@ -316,9 +316,16 @@
               <i class="fa-solid fa-file-lines text-lg"></i>
             </div>
             <div>
-              <h2 id="ws-doc-name" class="font-bold text-sm text-white">document.pdf</h2>
+              <div class="flex items-center gap-2">
+                <h2 id="ws-doc-name" class="font-bold text-sm text-white">document.pdf</h2>
+                <div id="ws-integrity-badge" class="flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  <i class="fa-solid fa-shield-check"></i> Intégrité : 0 fuite résiduelle
+                </div>
+              </div>
               <div class="flex items-center gap-2 mt-0.5">
                 <span id="ws-doc-size" class="text-[11px] text-slate-400">12 Ko</span>
+                <span class="text-slate-600">•</span>
+                <span id="ws-doc-pages" class="text-[11px] text-slate-400">1 page (0 car.)</span>
                 <span class="text-slate-600">•</span>
                 <span id="ws-doc-stats" class="text-[11px] text-emerald-400 font-medium">0 entité(s) consolidée(s)</span>
                 <span class="text-slate-600">•</span>
@@ -326,12 +333,21 @@
               </div>
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center flex-wrap gap-2">
+            <button onclick="openRawTextModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors" title="Vérifier le texte brut extrait du fichier">
+              <i class="fa-solid fa-file-lines mr-1 text-sky-400"></i> Aperçu Brut
+            </button>
+            <button onclick="exportCleanText()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors" title="Télécharger le texte entièrement pseudonymisé">
+              <i class="fa-solid fa-download mr-1 text-emerald-400"></i> Texte Expurgé
+            </button>
+            <button onclick="printSanitizedDoc()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors" title="Ouvrir version imprimable / export PDF propre">
+              <i class="fa-solid fa-print mr-1 text-violet-400"></i> Imprimer / PDF
+            </button>
             <button onclick="reopenConfigModal()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors">
               <i class="fa-solid fa-sliders mr-1 text-indigo-400"></i> Reconfigurer
             </button>
             <button onclick="resetWorkspace()" class="text-xs bg-slate-800 hover:bg-red-950 text-slate-300 hover:text-red-400 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors">
-              <i class="fa-solid fa-rotate-left mr-1"></i> Nouveau document
+              <i class="fa-solid fa-rotate-left mr-1"></i> Nouveau doc
             </button>
           </div>
         </div>
@@ -341,7 +357,16 @@
           <!-- Colonne Gauche : Visualiseur Document -->
           <div class="lg:col-span-7 flex flex-col gap-3">
             <div class="glass p-2.5 rounded-xl flex items-center justify-between flex-wrap gap-2">
-              <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider ml-2">Visualiseur :</span>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider ml-2">Visualiseur :</span>
+                <!-- Contrôle pagination multi-pages -->
+                <div id="ws-pagination-bar" class="hidden flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-lg text-xs">
+                  <button onclick="changePage(-1)" class="text-slate-400 hover:text-white px-1"><i class="fa-solid fa-chevron-left"></i></button>
+                  <span id="ws-page-current-display" class="font-mono text-indigo-400 font-bold text-[11px]">P. 1/1</span>
+                  <button onclick="changePage(1)" class="text-slate-400 hover:text-white px-1"><i class="fa-solid fa-chevron-right"></i></button>
+                  <button onclick="toggleFullDocView()" id="btn-toggle-full-view" class="ml-1 text-[10px] bg-slate-800 hover:bg-slate-700 px-1.5 py-0.5 rounded text-slate-300 font-semibold">Toutes</button>
+                </div>
+              </div>
               <div class="flex items-center gap-1">
                 <button id="btn-view-original" onclick="switchViewerMode('original')" class="px-2.5 py-1 rounded text-xs font-semibold text-slate-400 hover:text-white transition-all">Original</button>
                 <button id="btn-view-anon" onclick="switchViewerMode('anon')" class="px-2.5 py-1 rounded text-xs font-semibold bg-indigo-600 text-white shadow transition-all">Pseudonymisé</button>
@@ -356,7 +381,7 @@
             </div>
             
             <p class="text-[10px] text-slate-500 italic text-center">
-              Astuce : Cliquez sur n'importe quelle entité surlignée dans le visualiseur pour inspecter ses détails, sa clé de contrôle et ses moteurs contributeurs.
+              Astuce : Cliquez sur n'importe quelle entité surlignée pour inspecter ses détails, sa clé de contrôle ou la modifier/rejeter manuellement.
             </p>
           </div>
 
@@ -410,6 +435,25 @@
                 <div class="pt-1">
                   <span class="text-slate-400 block mb-0.5">Justification algorithmique :</span>
                   <p id="inspect-reason" class="text-[11px] text-slate-300 bg-slate-900/70 p-2 rounded border border-slate-800"></p>
+                </div>
+                
+                <!-- Actions manuelles : Valider / Rejeter / Modifier -->
+                <div class="pt-2 border-t border-slate-800 flex flex-wrap gap-2">
+                  <button id="btn-inspect-validate" onclick="validateCurrentEntity()" class="flex-1 bg-green-600/20 hover:bg-green-600/40 text-green-300 border border-green-500/30 py-1.5 px-2 rounded text-[11px] font-semibold transition-colors">
+                    <i class="fa-solid fa-check mr-1"></i> Valider
+                  </button>
+                  <button id="btn-inspect-reject" onclick="rejectCurrentEntity()" class="flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 py-1.5 px-2 rounded text-[11px] font-semibold transition-colors">
+                    <i class="fa-solid fa-ban mr-1"></i> Rejeter / Restaurer
+                  </button>
+                </div>
+                <div class="pt-2">
+                  <label class="text-[10px] text-slate-400 block mb-1">Modifier le pseudonyme :</label>
+                  <div class="flex gap-1.5">
+                    <input type="text" id="inspect-custom-pseudo-input" class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-slate-200 outline-none focus:border-indigo-500" placeholder="Ex: [ANONYME_1]">
+                    <button onclick="saveCustomPseudo()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] px-2.5 py-1 rounded font-semibold transition-colors">
+                      Appliquer
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -799,6 +843,28 @@
     </div>
   </div>
 
+  <!-- MODAL APERCU TEXTE BRUT EXTRAIT -->
+  <div id="modal-raw-preview" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="glass max-w-3xl w-full rounded-2xl border border-slate-700 p-6 flex flex-col max-h-[85vh]">
+      <div class="flex justify-between items-center pb-3 border-b border-slate-800 mb-3">
+        <h3 id="raw-preview-title" class="font-bold text-sm text-white flex items-center gap-2">
+          <i class="fa-solid fa-file-lines text-sky-400"></i> Aperçu du Texte Brut Extrait
+        </h3>
+        <button onclick="closeRawTextModal()" class="text-slate-500 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="flex-1 overflow-auto bg-slate-950 p-4 rounded-xl border border-slate-800">
+        <pre id="raw-preview-content" class="text-xs font-mono text-slate-300 whitespace-pre-wrap leading-relaxed"></pre>
+      </div>
+      <div class="pt-3 border-t border-slate-800 flex justify-end">
+        <button onclick="closeRawTextModal()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs px-4 py-2 rounded-lg font-semibold">
+          Fermer
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===================================================================== -->
   <!-- SCRIPT APPLICATION & ARCHITECTURE COMPLETE                            -->
   <!-- ===================================================================== -->
@@ -883,7 +949,8 @@
       statusEl.classList.remove('hidden');
 
       let extractedText = "";
-      let isOcrFallback = false;
+      let pages = [];
+      let isScanned = false;
 
       if (isPdf) {
         try {
@@ -893,22 +960,37 @@
             for (let i = 1; i <= pdf.numPages; i++) {
               const page = await pdf.getPage(i);
               const content = await page.getTextContent();
-              extractedText += content.items.map(it => it.str).join(' ') + "\n\n";
+              let lastY, pageStr = "";
+              for (const it of content.items) {
+                if (lastY !== undefined && Math.abs(it.transform[5] - lastY) > 5) {
+                  pageStr += "\n";
+                } else if (pageStr.length > 0 && !pageStr.endsWith(" ") && !pageStr.endsWith("\n")) {
+                  pageStr += " ";
+                }
+                pageStr += it.str;
+                lastY = it.transform[5];
+              }
+              const cleanPage = pageStr.trim();
+              pages.push({ pageNum: i, text: cleanPage, charCount: cleanPage.length });
             }
+            extractedText = pages.map(p => p.text).filter(t => t.length > 0).join("\n\n");
           }
         } catch (err) {
-          console.warn("Échec extraction directe PDF, fallback:", err);
+          console.warn("Échec extraction directe PDF:", err);
           extractedText = "";
         }
 
-        // Si le PDF est un scan d'image sans couche texte
-        if (!extractedText || extractedText.trim().length < 5) {
-          isOcrFallback = true;
-          extractedText = `[Document PDF scanné - Couche texte OCR de secours]\nContrat de Prestation de Services et de Sécurité Informatique.\nEntre la Société CyberGuard SAS (SIREN 512 890 123) et le prestataire Thomas DUBOIS.\nAdresse : 14 Rue de la Paix, 75002 Paris.\nCompte de règlement : IBAN FR76 3000 4000 0123 4567 8901 234\nContact : thomas.dubois@cyberguard.fr / 06 12 34 56 78\nFait à Paris, le 24 octobre 2026.\nLu et approuvé.\n[Signature Thomas DUBOIS]`;
+        // Si le PDF est un scan d'image sans couche texte vectorielle
+        if (!extractedText || extractedText.trim().length === 0) {
+          statusEl.classList.add('hidden');
+          isScanned = true;
+          alert("⚠️ Document Scanné / Image pure détecté (0 caractère extrait).\n\nCe fichier PDF ne contient aucune couche textuelle native exploitable par PDF.js. Une étape d'OCR (Reconnaissance Optique de Caractères) est nécessaire pour extraire son contenu.\n\nVous pouvez coller le texte extrait manuellement dans la zone prévue, ou tester un de nos documents de démonstration.");
+          return;
         }
       } else {
         try {
           extractedText = await file.text();
+          pages = [{ pageNum: 1, text: extractedText, charCount: extractedText.length }];
         } catch (e) {
           extractedText = "Erreur lors de la lecture du fichier texte.";
         }
@@ -920,7 +1002,10 @@
         name: file.name,
         sizeKb: Math.max(1, Math.round(file.size / 1024)),
         text: extractedText,
-        isOcrFallback
+        pages: pages,
+        totalPages: pages.length,
+        totalChars: extractedText.length,
+        isOcrFallback: false
       };
 
       openConfigModal();
@@ -937,6 +1022,9 @@
         name: `Extrait_Texte_${timeStr}.txt`,
         sizeKb: Math.round(val.length / 1024) || 1,
         text: val,
+        pages: [{ pageNum: 1, text: val, charCount: val.length }],
+        totalPages: 1,
+        totalChars: val.length,
         isOcrFallback: false
       };
       openConfigModal();
@@ -953,6 +1041,9 @@
         name: `Exemple_${key.toUpperCase()}.pdf`,
         sizeKb: 8,
         text: text,
+        pages: [{ pageNum: 1, text: text, charCount: text.length }],
+        totalPages: 1,
+        totalChars: text.length,
         isOcrFallback: false
       };
       openConfigModal();
@@ -1178,7 +1269,25 @@
       }
     };
 
-    // Moteur GLiNER : Heuristiques contextuelles linguistiques
+    const FIRST_NAMES_SET = new Set([
+      'rayan', 'rayann', 'pierre', 'jean', 'thomas', 'alexandre', 'lucas', 'nicolas',
+      'maxime', 'julien', 'antoine', 'david', 'paul', 'mohamed', 'mehdi', 'youssef',
+      'sophie', 'camille', 'emma', 'lea', 'léa', 'sarah', 'chloe', 'chloé', 'ines',
+      'inès', 'julie', 'marie', 'valerie', 'valérie', 'clara', 'manon', 'hugo', 'louis',
+      'arthur', 'gabriel', 'raphael', 'raphaël', 'jules', 'adam', 'noah', 'victor'
+    ]);
+
+    const FRENCH_STOP_WORDS = new Set([
+      'je', 'tu', 'il', 'elle', 'on', 'nous', 'vous', 'ils', 'elles',
+      'le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'd', 'd\'',
+      'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'son', 'sa', 'ses',
+      'dans', 'sur', 'pour', 'avec', 'sans', 'sous', 'par', 'et', 'ou',
+      'qui', 'que', 'quoi', 'dont', 'ou', 'où', 'ce', 'cet', 'cette', 'ces',
+      'veux', 'vais', 'ai', 'as', 'a', 'avons', 'avez', 'ont', 'suis', 'es', 'est', 'sommes', 'etes', 'êtes', 'sont',
+      'habite', 'habites', 'demeure', 'signer', 'contrat', 'document', 'lettre', 'accord', 'aux', 'au', 'à', 'a'
+    ]);
+
+    // Moteur GLiNER : Heuristiques contextuelles linguistiques et prédicats d'entités
     const GLiNER = {
       detect(text, cats) {
         const start = performance.now();
@@ -1186,24 +1295,105 @@
         let c = 1;
 
         if (cats.includes('PERSON')) {
-          const patterns = [
-            { re: /(?:je\s+suis|m['’]appelle|nomm[ée]e?|salari[ée]e?|consultant[e]?|client[e]?)\s+([A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]+)?)/gi, conf: 0.94, r: "Entité PERSONNE identifiée par prédicat introductif d'identité" },
-            { re: /(?:M\.|Mme|Monsieur|Madame|Me|Ma[îi]tre|Dr\.?|Docteur)\s+([A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]+)*)/g, conf: 0.96, r: "Entité PERSONNE identifiée par titre de civilité" },
-            { re: /(?:sign[ée]\s+par|repr[ée]sent[ée]\s+par|auditeur\s*:\s*|employ[ée]\s*:\s*)\s+([A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]+)*)/gi, conf: 0.95, r: "Entité PERSONNE identifiée par rôle contractuel ou signature" },
-            { re: /\b([A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]{2,}\s+[A-ZÀ-ÖØ-ß]{2,})\b/g, conf: 0.88, r: "Entité PERSONNE identifiée par structure patronymique standard (Prénom NOM)" }
-          ];
-          patterns.forEach(p => {
-            let m;
-            while ((m = p.re.exec(text)) !== null) {
-              const val = m[1];
-              const offset = m[0].indexOf(val);
+          // 1. Prédicats d'identité formels et informels (avec tolérance orthographique / casse)
+          const introRe = /(?:je\s+(?:suis|m['’\s]?appelle?|mapelle?|m['’\s]?appel|mapel)|moi\s+c['’\s]?est|mon\s+nom\s+(?:est|c['’\s]?est)|mon\s+pr[ée]nom\s+(?:est|c['’\s]?est)|nom\s*:\s*|pr[ée]nom\s*:\s*|salari[ée]e?\s*:\s*|employ[ée]e?\s*:\s*|prestataire\s*:\s*)\s+([a-zA-ZÀ-ÿ]+(?:\s+[a-zA-ZÀ-ÿ]+)*)/gi;
+          let m;
+          while ((m = introRe.exec(text)) !== null) {
+            const raw = m[1].trim();
+            const words = raw.split(/\s+/);
+            const validWords = [];
+            for (const w of words) {
+              if (FRENCH_STOP_WORDS.has(w.toLowerCase())) break;
+              validWords.push(w);
+              if (validWords.length >= 3) break;
+            }
+            if (validWords.length > 0) {
+              const personName = validWords.join(' ');
+              const offset = m[0].indexOf(personName);
+              const st = m.index + offset;
               res.push({
-                id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: m.index + offset, end: m.index + offset + val.length,
-                original: val, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
-                validation: 'contextual_ner', confidence: p.conf, reason: p.r
+                id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: st, end: st + personName.length,
+                original: personName, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'validated',
+                validation: 'contextual_identity_predicate', confidence: 0.96,
+                reason: "Entité PERSONNE identifiée par prédicat d'expression personnelle (tolérance orthographique)"
               });
             }
-          });
+          }
+
+          // 2. Titres de civilité & Honorifiques
+          const civilRe = /(?:M\.|Mme|Mlle|Monsieur|Madame|Mademoiselle|Me|Ma[îi]tre|Dr\.?|Docteur|Professeur|Pr\.?)\s+([a-zA-ZÀ-ÿ]+(?:\s+[a-zA-ZÀ-ÿ]+)*)/gi;
+          while ((m = civilRe.exec(text)) !== null) {
+            const raw = m[1].trim();
+            const words = raw.split(/\s+/);
+            const validWords = [];
+            for (const w of words) {
+              if (FRENCH_STOP_WORDS.has(w.toLowerCase())) break;
+              validWords.push(w);
+              if (validWords.length >= 3) break;
+            }
+            if (validWords.length > 0) {
+              const personName = validWords.join(' ');
+              const offset = m[0].indexOf(personName);
+              const st = m.index + offset;
+              if (!res.some(d => (st >= d.start && st < d.end))) {
+                res.push({
+                  id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: st, end: st + personName.length,
+                  original: personName, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'validated',
+                  validation: 'civility_title', confidence: 0.98,
+                  reason: "Entité PERSONNE identifiée via titre de civilité ou honorifique"
+                });
+              }
+            }
+          }
+
+          // 3. Rôles contractuels
+          const roleRe = /(?:sign[ée]\s+par|repr[ée]sent[ée]\s+par|auditeur\s*:\s*|pour\s+le\s+compte\s+de\s+)\s+([A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]+)*)/gi;
+          while ((m = roleRe.exec(text)) !== null) {
+            const val = m[1];
+            const offset = m[0].indexOf(val);
+            const st = m.index + offset;
+            if (!res.some(d => (st >= d.start && st < d.end))) {
+              res.push({
+                id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: st, end: st + val.length,
+                original: val, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
+                validation: 'contractual_role', confidence: 0.95,
+                reason: "Entité PERSONNE identifiée via rôle contractuel explicite"
+              });
+            }
+          }
+
+          // 4. Structure patronymique standard (Prénom NOM)
+          const patroRe = /\b([A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]{2,}\s+[A-ZÀ-ÖØ-ß]{2,})\b/g;
+          while ((m = patroRe.exec(text)) !== null) {
+            const val = m[1];
+            const st = m.index;
+            if (!res.some(d => (st >= d.start && st < d.end))) {
+              res.push({
+                id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: st, end: st + val.length,
+                original: val, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
+                validation: 'patronymic_pattern', confidence: 0.88,
+                reason: "Entité PERSONNE identifiée via structure patronymique standard"
+              });
+            }
+          }
+
+          // 5. Nomenclature des prénoms fréquents
+          const nameWordRe = /\b([a-zA-ZÀ-ÿ]{3,20})\b/g;
+          while ((m = nameWordRe.exec(text)) !== null) {
+            const w = m[1];
+            if (FIRST_NAMES_SET.has(w.toLowerCase())) {
+              const st = m.index;
+              const en = st + w.length;
+              if (!res.some(d => (st >= d.start && st < d.end) || (en > d.start && en <= d.end))) {
+                res.push({
+                  id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: st, end: en,
+                  original: w, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
+                  validation: 'name_dictionary', confidence: 0.90,
+                  reason: "Prénom répertorié dans le référentiel anthroponymique"
+                });
+              }
+            }
+          }
         }
 
         if (cats.includes('ORG')) {
@@ -1233,16 +1423,35 @@
         }
 
         if (cats.includes('ADDRESS')) {
-          const re = /(?:demeurant|r[ée]sidant|domicili[ée]e?|sise?|adresse\s*:)\s+(?:au\s+)?(\d{1,4}(?:[\s,]+(?:bis|ter))?[\s,]+(?:rue|avenue|boulevard|all[ée]e|place|chemin)[\s\wà-öø-ÿ'-]+,\s*\d{5}\s+[A-ZÀ-ÖØ-ßa-zà-öø-ÿ]+)/gi;
+          // 1. Avec introducteur de domicile (j'habite, jhabite, résidant, demeurant, etc.)
+          const addrIntroRe = /(?:j['’\s]?habite|habite|habitant|vivant|demeurant|r[ée]sidant|domicili[ée]e?|sise?|situ[ée]e?|adresse\s*:)\s+(?:au|aux|à|a|\s)*\s*(\d{1,4}(?:[\s,]+(?:bis|ter|b|t))?[\s,]+(?:rue|rues|avenue|av\.?|boulevard|bd\.?|bld\.?|all[ée]e|place|chemin|impasse|quai|cours|route|square|voie|ruelle|passage)\s+(?:des\s+|du\s+|de\s+la\s+|de\s+|d['’])?[\wà-öø-ÿ'-]+(?:\s+[\wà-öø-ÿ'-]+){0,5}(?:,\s*\d{5}\s+[\wà-öø-ÿ'-]+)?)(?=[,.;\n\r]|\s+(?:et|ou|je|avec|pour|qui|le|la|les|$)|$)/gi;
           let m;
-          while ((m = re.exec(text)) !== null) {
+          while ((m = addrIntroRe.exec(text)) !== null) {
             const val = m[1].trim();
             const offset = m[0].indexOf(val);
+            const st = m.index + offset;
             res.push({
-              id: `GLINER_ADDR_${c++}`, category: 'ADDRESS', start: m.index + offset, end: m.index + offset + val.length,
-              original: val, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
-              validation: 'contextual_address', confidence: 0.91, reason: "Adresse postale identifiée par marqueur de domicile"
+              id: `GLINER_ADDR_${c++}`, category: 'ADDRESS', start: st, end: st + val.length,
+              original: val, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'validated',
+              validation: 'residence_address_marker', confidence: 0.96,
+              reason: "Adresse postale identifiée par marqueur de domicile et voirie"
             });
+          }
+
+          // 2. Format de voirie autonome
+          const standRe = /\b(\d{1,4}(?:[\s,]+(?:bis|ter|b|t))?[\s,]+(?:rue|rues|avenue|av\.?|boulevard|bd\.?|bld\.?|all[ée]e|place|chemin|impasse|quai|cours|route|square|voie|ruelle|passage)\s+(?:des\s+|du\s+|de\s+la\s+|de\s+|d['’])?[\wà-öø-ÿ'-]+(?:\s+[\wà-öø-ÿ'-]+){0,5}(?:,\s*\d{5}\s+[\wà-öø-ÿ'-]+)?)\b/gi;
+          while ((m = standRe.exec(text)) !== null) {
+            const val = m[1].trim();
+            const st = m.index;
+            const en = st + val.length;
+            if (!res.some(d => (st >= d.start && st < d.end) || (en > d.start && en <= d.end))) {
+              res.push({
+                id: `GLINER_ADDR_${c++}`, category: 'ADDRESS', start: st, end: en,
+                original: val, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
+                validation: 'street_address_pattern', confidence: 0.91,
+                reason: "Adresse de voirie identifiée par structure odonymique standard"
+              });
+            }
           }
         }
 
@@ -1457,6 +1666,21 @@
         d.assignedPseudonym = identityMap.get(key);
       });
 
+      // Génération du texte propre expurgé par substitution inversée (sans décalage)
+      let cleanPsdText = text;
+      const sortedDesc = [...consolidated].filter(d => d.status !== 'rejected').sort((a, b) => b.start - a.start);
+      for (const d of sortedDesc) {
+        cleanPsdText = cleanPsdText.substring(0, d.start) + d.assignedPseudonym + cleanPsdText.substring(d.end);
+      }
+
+      // Contrôle de sécurité post-traitement (vérification des résidus)
+      const residualLeaks = [];
+      for (const m of mapping) {
+        if (cleanPsdText.toLowerCase().includes(m.original.toLowerCase())) {
+          residualLeaks.push(m.original);
+        }
+      }
+
       // Rendu des 4 vues documentaires
       let outOrig = '', outAnon = '', outBench = '', outMerged = '';
       let cursor = 0;
@@ -1468,11 +1692,16 @@
         outBench += escapeHtml(prefix);
         outMerged += escapeHtml(prefix);
 
-        const spanClass = (mode === 'redact') ? 'bb-span bb-redact' : (mode === 'pseudo') ? 'bb-span bb-pseudo' : 'bb-span bb-tag';
+        const isRejected = d.status === 'rejected';
+        const spanClass = isRejected ? 'line-through text-slate-400 opacity-60' : (mode === 'redact') ? 'bb-span bb-redact' : (mode === 'pseudo') ? 'bb-span bb-pseudo' : 'bb-span bb-tag';
         const engineClass = (d.engine === 'JEV') ? 'bb-jev' : (d.engine === 'GLiNER') ? 'bb-gliner' : 'bb-sig';
 
         outOrig += escapeHtml(d.original);
-        outAnon += `<span class="${spanClass}" onclick="openInspector('${d.id}')" title="Cliquez pour inspecter">${escapeHtml(d.assignedPseudonym)}</span>`;
+        if (isRejected) {
+          outAnon += `<span class="text-slate-500 line-through" onclick="openInspector('${d.id}')" title="Rejeté - Cliquez pour réactiver">${escapeHtml(d.original)}</span>`;
+        } else {
+          outAnon += `<span class="${spanClass}" onclick="openInspector('${d.id}')" title="Cliquez pour inspecter">${escapeHtml(d.assignedPseudonym)}</span>`;
+        }
         outBench += `<span class="bb-span ${engineClass}" onclick="openInspector('${d.id}')" title="${d.engine} - ${d.category} (Cliquez pour inspecter)">${escapeHtml(d.original)}</span>`;
         outMerged += `<span class="bb-span bb-merged" onclick="openInspector('${d.id}')" title="Consolidé - ${d.category}">${escapeHtml(d.original)}</span>`;
 
@@ -1496,7 +1725,7 @@
         action: 'PSEUDONYMIZE',
         status: 'success',
         durationMs: totalTime,
-        reason: `Pseudonymisation finalisée avec préservation des segments UTF-16 (${mapping.length} identités enregistrées)`
+        reason: `Pseudonymisation finalisée avec préservation UTF-16 (${mapping.length} identités, ${residualLeaks.length} résidu détecté)`
       });
 
       const docRecord = {
@@ -1504,6 +1733,13 @@
         name: docName,
         sizeKb: appState.pendingDoc.sizeKb,
         originalText: text,
+        cleanPseudonymizedText: cleanPsdText,
+        anonymizedText: cleanPsdText,
+        pages: appState.pendingDoc.pages || [{ pageNum: 1, text: text, charCount: text.length }],
+        totalPages: appState.pendingDoc.totalPages || 1,
+        totalChars: appState.pendingDoc.totalChars || text.length,
+        currentPage: 1,
+        viewingAllPages: true,
         annotatedOrig: outOrig,
         annotatedAnon: outAnon,
         annotatedBench: outBench,
@@ -1514,6 +1750,7 @@
         totalDurationMs: totalTime,
         date: new Date().toLocaleTimeString(),
         risk: consolidated.length > 3 ? 'high' : 'low',
+        residualLeaks: residualLeaks,
         isOcrFallback: appState.pendingDoc.isOcrFallback
       };
 
@@ -1526,17 +1763,217 @@
       updateNavbarStatus();
     }
 
+    // --- RECOMPUTATION DYNAMIQUE APRES REJET / VALIDATION MANUELLE ---
+    function recomputeViews() {
+      if (!appState.currentDoc) return;
+      const text = appState.currentDoc.originalText;
+      const mode = document.getElementById('cfg-replacement-mode') ? document.getElementById('cfg-replacement-mode').value : 'tags';
+      const consolidated = appState.currentDoc.detections;
+
+      // Clean text
+      let cleanPsdText = text;
+      const sortedDesc = [...consolidated].filter(d => d.status !== 'rejected').sort((a, b) => b.start - a.start);
+      for (const d of sortedDesc) {
+        cleanPsdText = cleanPsdText.substring(0, d.start) + d.assignedPseudonym + cleanPsdText.substring(d.end);
+      }
+      appState.currentDoc.cleanPseudonymizedText = cleanPsdText;
+      appState.currentDoc.anonymizedText = cleanPsdText;
+
+      // Scan résiduel
+      const residualLeaks = [];
+      for (const m of appState.currentDoc.mapping) {
+        if (m.status !== 'rejected' && cleanPsdText.toLowerCase().includes(m.original.toLowerCase())) {
+          residualLeaks.push(m.original);
+        }
+      }
+      appState.currentDoc.residualLeaks = residualLeaks;
+
+      // Re-render HTML views
+      let outOrig = '', outAnon = '', outBench = '', outMerged = '';
+      let cursor = 0;
+
+      consolidated.forEach(d => {
+        const prefix = text.substring(cursor, d.start);
+        outOrig += escapeHtml(prefix);
+        outAnon += escapeHtml(prefix);
+        outBench += escapeHtml(prefix);
+        outMerged += escapeHtml(prefix);
+
+        const isRejected = d.status === 'rejected';
+        const spanClass = isRejected ? 'line-through text-slate-400 opacity-60' : (mode === 'redact') ? 'bb-span bb-redact' : (mode === 'pseudo') ? 'bb-span bb-pseudo' : 'bb-span bb-tag';
+        const engineClass = (d.engine === 'JEV') ? 'bb-jev' : (d.engine === 'GLiNER') ? 'bb-gliner' : 'bb-sig';
+
+        outOrig += escapeHtml(d.original);
+        if (isRejected) {
+          outAnon += `<span class="text-slate-500 line-through cursor-pointer" onclick="openInspector('${d.id}')" title="Rejeté - Cliquez pour réactiver">${escapeHtml(d.original)}</span>`;
+        } else {
+          outAnon += `<span class="${spanClass}" onclick="openInspector('${d.id}')" title="Cliquez pour inspecter">${escapeHtml(d.assignedPseudonym)}</span>`;
+        }
+        outBench += `<span class="bb-span ${engineClass}" onclick="openInspector('${d.id}')" title="${d.engine} - ${d.category}">${escapeHtml(d.original)}</span>`;
+        outMerged += `<span class="bb-span bb-merged" onclick="openInspector('${d.id}')" title="Consolidé - ${d.category}">${escapeHtml(d.original)}</span>`;
+
+        cursor = d.end;
+      });
+
+      const tail = text.substring(cursor);
+      outOrig += escapeHtml(tail);
+      outAnon += escapeHtml(tail);
+      outBench += escapeHtml(tail);
+      outMerged += escapeHtml(tail);
+
+      appState.currentDoc.annotatedOrig = outOrig;
+      appState.currentDoc.annotatedAnon = outAnon;
+      appState.currentDoc.annotatedBench = outBench;
+      appState.currentDoc.annotatedMerged = outMerged;
+
+      switchViewerMode(appState.viewerMode);
+      renderMappingTable();
+    }
+
+    // --- ACTIONS MANUELLES DE L'INSPECTEUR ---
+    function validateCurrentEntity() {
+      if (!appState.activeInspectorDet || !appState.currentDoc) return;
+      const det = appState.activeInspectorDet;
+      det.status = 'validated';
+      const mapItem = appState.currentDoc.mapping.find(m => m.category === det.category && m.original.toLowerCase() === det.original.toLowerCase());
+      if (mapItem) mapItem.status = 'validated';
+
+      appState.currentDoc.auditLogs.unshift({
+        eventId: `EVT_MAN_VAL_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        documentId: appState.currentDoc.name,
+        engine: 'USER_OVERRIDE',
+        action: 'VALIDATE',
+        status: 'success',
+        durationMs: 1,
+        reason: `Validation manuelle confirmée par l'opérateur pour l'entité '${det.original}'`
+      });
+
+      recomputeViews();
+      openInspector(det.id);
+    }
+
+    function rejectCurrentEntity() {
+      if (!appState.activeInspectorDet || !appState.currentDoc) return;
+      const det = appState.activeInspectorDet;
+      const isAlreadyRejected = det.status === 'rejected';
+      det.status = isAlreadyRejected ? 'candidate' : 'rejected';
+      const mapItem = appState.currentDoc.mapping.find(m => m.category === det.category && m.original.toLowerCase() === det.original.toLowerCase());
+      if (mapItem) mapItem.status = det.status;
+
+      appState.currentDoc.auditLogs.unshift({
+        eventId: `EVT_MAN_REJ_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        documentId: appState.currentDoc.name,
+        engine: 'USER_OVERRIDE',
+        action: isAlreadyRejected ? 'RESTORE' : 'REJECT',
+        status: 'success',
+        durationMs: 1,
+        reason: isAlreadyRejected
+          ? `Restauration de l'entité '${det.original}' par l'opérateur`
+          : `Rejet manuel de l'entité '${det.original}' par l'opérateur (valeur brute conservée)`
+      });
+
+      recomputeViews();
+      openInspector(det.id);
+    }
+
+    function saveCustomPseudo() {
+      if (!appState.activeInspectorDet || !appState.currentDoc) return;
+      const input = document.getElementById('inspect-custom-pseudo-input');
+      const val = input.value.trim();
+      if (!val) {
+        alert("Veuillez saisir une valeur de pseudonyme valide.");
+        return;
+      }
+      const det = appState.activeInspectorDet;
+      det.assignedPseudonym = val;
+      const mapItem = appState.currentDoc.mapping.find(m => m.category === det.category && m.original.toLowerCase() === det.original.toLowerCase());
+      if (mapItem) mapItem.pseudonym = val;
+
+      appState.currentDoc.auditLogs.unshift({
+        eventId: `EVT_MAN_EDIT_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        documentId: appState.currentDoc.name,
+        engine: 'USER_OVERRIDE',
+        action: 'CUSTOMIZE',
+        status: 'success',
+        durationMs: 1,
+        reason: `Personnalisation du pseudonyme pour '${det.original}' -> '${val}'`
+      });
+
+      recomputeViews();
+      openInspector(det.id);
+      input.value = '';
+    }
+
+    // --- GESTION DE LA PAGINATION MULTI-PAGES ---
+    function changePage(delta) {
+      if (!appState.currentDoc || !appState.currentDoc.pages) return;
+      const total = appState.currentDoc.totalPages;
+      let target = appState.currentDoc.currentPage + delta;
+      if (target < 1) target = 1;
+      if (target > total) target = total;
+      appState.currentDoc.currentPage = target;
+      appState.currentDoc.viewingAllPages = false;
+      renderCurrentPageText();
+    }
+
+    function toggleFullDocView() {
+      if (!appState.currentDoc) return;
+      appState.currentDoc.viewingAllPages = !appState.currentDoc.viewingAllPages;
+      const btn = document.getElementById('btn-toggle-full-view');
+      if (appState.currentDoc.viewingAllPages) {
+        btn.innerText = "Par page";
+        switchViewerMode(appState.viewerMode);
+      } else {
+        btn.innerText = "Toutes";
+        renderCurrentPageText();
+      }
+    }
+
+    function renderCurrentPageText() {
+      if (!appState.currentDoc) return;
+      const doc = appState.currentDoc;
+      const pNum = doc.currentPage;
+      document.getElementById('ws-page-current-display').innerText = `P. ${pNum}/${doc.totalPages}`;
+      const pageObj = doc.pages.find(p => p.pageNum === pNum) || doc.pages[0];
+      const container = document.getElementById('viewer-content');
+      container.innerHTML = `<div class="text-xs text-slate-400 mb-2 font-mono pb-2 border-b">--- Page ${pNum} sur ${doc.totalPages} (${pageObj.charCount} caractères) ---</div>\n` + escapeHtml(pageObj.text);
+    }
+
     // --- RENDU WORKSPACE DU DOCUMENT ---
     function renderWorkspace() {
       if (!appState.currentDoc) return;
+      const doc = appState.currentDoc;
 
       document.getElementById('section-upload').classList.add('hidden');
       document.getElementById('section-workspace').classList.remove('hidden');
 
-      document.getElementById('ws-doc-name').innerText = appState.currentDoc.name;
-      document.getElementById('ws-doc-size').innerText = `${appState.currentDoc.sizeKb} Ko`;
-      document.getElementById('ws-doc-stats').innerText = `${appState.currentDoc.detections.length} entité(s) consolidée(s)`;
-      document.getElementById('ws-doc-time').innerText = `Durée réelle: ${appState.currentDoc.totalDurationMs} ms`;
+      document.getElementById('ws-doc-name').innerText = doc.name;
+      document.getElementById('ws-doc-size').innerText = `${doc.sizeKb} Ko`;
+      document.getElementById('ws-doc-pages').innerText = `${doc.totalPages || 1} page(s) (${doc.totalChars || doc.originalText.length} car.)`;
+      document.getElementById('ws-doc-stats').innerText = `${doc.detections.filter(d => d.status !== 'rejected').length} entité(s) validée(s)`;
+      document.getElementById('ws-doc-time').innerText = `Durée: ${doc.totalDurationMs} ms`;
+
+      // Badge d'intégrité
+      const badge = document.getElementById('ws-integrity-badge');
+      if (doc.residualLeaks && doc.residualLeaks.length > 0) {
+        badge.className = "flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/30";
+        badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> Résidu(s) détecté(s): ${doc.residualLeaks.join(', ')}`;
+      } else {
+        badge.className = "flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
+        badge.innerHTML = `<i class="fa-solid fa-shield-check"></i> Intégrité : 0 fuite résiduelle`;
+      }
+
+      // Pagination
+      const pageBar = document.getElementById('ws-pagination-bar');
+      if (doc.totalPages > 1) {
+        pageBar.classList.remove('hidden');
+        document.getElementById('ws-page-current-display').innerText = `P. ${doc.currentPage}/${doc.totalPages}`;
+      } else {
+        pageBar.classList.add('hidden');
+      }
 
       switchViewerMode(appState.viewerMode);
       renderMappingTable();
@@ -1585,6 +2022,16 @@
       document.getElementById('inspect-status').innerText = `${det.status} (${det.validation})`;
       document.getElementById('inspect-offsets').innerText = `[start: ${det.start}, end: ${det.end}]`;
       document.getElementById('inspect-reason').innerText = det.reason;
+
+      // Bouton état rejet
+      const btnRej = document.getElementById('btn-inspect-reject');
+      if (det.status === 'rejected') {
+        btnRej.innerHTML = '<i class="fa-solid fa-rotate-left mr-1"></i> Réactiver l\'entité';
+        btnRej.className = 'flex-1 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 py-1.5 px-2 rounded text-[11px] font-semibold transition-colors';
+      } else {
+        btnRej.innerHTML = '<i class="fa-solid fa-ban mr-1"></i> Rejeter / Restaurer';
+        btnRej.className = 'flex-1 bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 py-1.5 px-2 rounded text-[11px] font-semibold transition-colors';
+      }
     }
 
     function closeInspector() {
@@ -1627,11 +2074,12 @@
 
       tbody.innerHTML = filtered.map((m, idx) => {
         const isMasked = appState.mappingMasks[m.id] !== false; // masqué par défaut
+        const isRejected = m.status === 'rejected';
         return `
-          <tr class="border-b border-slate-800/40 hover:bg-slate-800/30">
+          <tr class="border-b border-slate-800/40 hover:bg-slate-800/40 cursor-pointer transition-colors" onclick="openInspectorFromTable('${escapeHtml(m.original)}')">
             <td class="p-2">
-              <div class="flex items-center gap-1.5">
-                <span class="font-mono text-[11px] ${isMasked ? 'blur-[3px] select-none text-slate-400' : 'text-slate-200'}">
+              <div class="flex items-center gap-1.5" onclick="event.stopPropagation()">
+                <span class="font-mono text-[11px] ${isRejected ? 'line-through text-slate-500' : isMasked ? 'blur-[3px] select-none text-slate-400' : 'text-slate-200'}">
                   ${escapeHtml(m.original)}
                 </span>
                 <button onclick="toggleSingleMask('${m.id}')" class="text-slate-500 hover:text-indigo-400 text-[10px]" title="Masquer / Démasquer">
@@ -1639,16 +2087,22 @@
                 </button>
               </div>
             </td>
-            <td class="p-2 font-mono text-[11px] text-green-400 font-semibold">${escapeHtml(m.pseudonym)}</td>
+            <td class="p-2 font-mono text-[11px] ${isRejected ? 'text-slate-500 line-through' : 'text-green-400 font-semibold'}">${escapeHtml(m.pseudonym)}</td>
             <td class="p-2 text-slate-300 text-[11px]">${m.category}</td>
             <td class="p-2">
-              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                ${m.contributingEngines.join('+')}
+              <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ${isRejected ? 'bg-red-950 text-red-400 border border-red-800' : 'bg-slate-800 text-slate-300 border border-slate-700'}">
+                ${isRejected ? 'Rejeté' : m.contributingEngines.join('+')}
               </span>
             </td>
           </tr>
         `;
       }).join('');
+    }
+
+    function openInspectorFromTable(originalVal) {
+      if (!appState.currentDoc) return;
+      const det = appState.currentDoc.detections.find(d => d.original === originalVal);
+      if (det) openInspector(det.id);
     }
 
     function toggleSingleMask(mapId) {
@@ -1725,6 +2179,132 @@
       navigator.clipboard.writeText(JSON.stringify(appState.currentDoc.mapping, null, 2)).then(() => {
         alert("Table des correspondances copiée dans le presse-papier !");
       });
+    }
+
+    // --- APERCU DU TEXTE BRUT EXTRAIT & EXPORTS DOCUMENTS ---
+    function openRawTextModal() {
+      if (!appState.currentDoc) return;
+      document.getElementById('raw-preview-title').innerHTML = `<i class="fa-solid fa-file-lines text-sky-400 mr-2"></i> Aperçu Brut : ${escapeHtml(appState.currentDoc.name)} (${appState.currentDoc.totalChars || appState.currentDoc.originalText.length} caractères)`;
+      document.getElementById('raw-preview-content').textContent = appState.currentDoc.originalText || "(Texte vide)";
+      document.getElementById('modal-raw-preview').classList.remove('hidden');
+    }
+
+    function closeRawTextModal() {
+      document.getElementById('modal-raw-preview').classList.add('hidden');
+    }
+
+    function exportCleanText() {
+      if (!appState.currentDoc) {
+        alert("Aucun document traité à exporter.");
+        return;
+      }
+      const cleanContent = appState.currentDoc.cleanPseudonymizedText || appState.currentDoc.anonymizedText || "";
+      const blob = new Blob([cleanContent], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const safeName = (appState.currentDoc.name || 'document').replace(/\.[^/.]+$/, "");
+      a.download = `${safeName}_pseudonymise.txt`;
+      a.click();
+    }
+
+    function printSanitizedDoc() {
+      if (!appState.currentDoc) {
+        alert("Aucun document traité à imprimer.");
+        return;
+      }
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert("Veuillez autoriser les fenêtres pop-up pour imprimer le document.");
+        return;
+      }
+      const safeName = escapeHtml(appState.currentDoc.name || 'document');
+      const textVal = appState.currentDoc.cleanPseudonymizedText || appState.currentDoc.anonymizedText || "";
+      const sanitizedHtml = escapeHtml(textVal).replace(/\n/g, '<br>');
+      const dateStr = new Date().toLocaleString('fr-FR');
+
+      printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Document Pseudonymisé - ${safeName}</title>
+  <style>
+    @media print {
+      @page { margin: 20mm; }
+      body { font-size: 11pt; }
+      .no-print { display: none !important; }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+    .header {
+      border-bottom: 2px solid #4f46e5;
+      padding-bottom: 15px;
+      margin-bottom: 25px;
+    }
+    .header h1 {
+      margin: 0 0 5px 0;
+      font-size: 18pt;
+      color: #1e1b4b;
+    }
+    .meta {
+      font-size: 9pt;
+      color: #64748b;
+    }
+    .content {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 24px;
+      white-space: pre-wrap;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 10.5pt;
+      line-height: 1.5;
+    }
+    .footer {
+      margin-top: 30px;
+      font-size: 8pt;
+      color: #94a3b8;
+      text-align: center;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 15px;
+    }
+    .btn-print {
+      background: #4f46e5;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print">
+    <button class="btn-print" onclick="window.print()">🖨️ Lancer l'impression / Enregistrer en PDF</button>
+  </div>
+  <div class="header">
+    <h1>Document Expurgé & Pseudonymisé</h1>
+    <div class="meta">
+      <strong>Fichier source :</strong> ${safeName} | 
+      <strong>Date d'expurgation :</strong> ${dateStr} | 
+      <strong>Moteur :</strong> Anonymizer Studio V2 Client-Side
+    </div>
+  </div>
+  <div class="content">${sanitizedHtml}</div>
+  <div class="footer">
+    Ce document a été traité localement dans le navigateur selon le protocole de conformité RGPD. Aucune donnée n'a été transmise sur un réseau externe.
+  </div>
+</body>
+</html>`);
+      printWindow.document.close();
     }
 
     // --- COFFRE-FORT NUMERIQUE ---
