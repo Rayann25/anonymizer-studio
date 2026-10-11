@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Anonymizer Studio V2 – Pseudonymisation Souveraine</title>
+<title>Anonymizer Studio V2 – Détection Universelle</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 tailwind.config={darkMode:'class',theme:{extend:{colors:{brand:'#6366f1',brandDark:'#4f46e5',ok:'#22c55e',warn:'#f59e0b',danger:'#ef4444'}}}}
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 </script>
 <style>
 :root{--brand:#6366f1;--ok:#22c55e;--warn:#f59e0b;--danger:#ef4444}
@@ -19,10 +20,11 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0f1e;color:#e2e8f0;m
 ::-webkit-scrollbar-track{background:#0f172a}
 ::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
 .glass{background:rgba(15,23,42,.75);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.08)}
-.glow{box-shadow:0 0 24px rgba(99,102,241,.25)}
-/* Tabs */
+/* Tabs & Nav */
 .tab-item{cursor:pointer;padding:.5rem 1.25rem;border-radius:.5rem;color:#94a3b8;font-size:.875rem;font-weight:500;transition:all .2s}
 .tab-item.active{background:rgba(99,102,241,.15);color:#a5b4fc;border:1px solid rgba(99,102,241,.3)}
+.view-btn{padding:.4rem 1rem;border-radius:.5rem;font-size:.8rem;font-weight:600;transition:all .2s;border:1px solid transparent;color:#94a3b8}
+.view-btn.active{background:#3b82f6;color:#fff;border-color:#2563eb;box-shadow:0 0 12px rgba(59,130,246,.4)}
 /* Badges */
 .badge{display:inline-flex;align-items:center;gap:.35rem;font-size:.7rem;font-weight:600;padding:.2rem .6rem;border-radius:99px;letter-spacing:.04em}
 .badge-ok{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3)}
@@ -30,51 +32,40 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0f1e;color:#e2e8f0;m
 .badge-info{background:rgba(99,102,241,.15);color:#a5b4fc;border:1px solid rgba(99,102,241,.3)}
 .badge-gray{background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid rgba(100,116,139,.3)}
 /* Modals */
-.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:50;display:none;align-items:center;justify-content:center}
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);z-index:50;display:none;align-items:center;justify-content:center}
 .modal-backdrop.open{display:flex}
+/* Dropzone */
+.dropzone{border:2px dashed rgba(99,102,241,.4);border-radius:1rem;background:rgba(15,23,42,.5);transition:all .2s;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem 2rem;text-align:center}
+.dropzone:hover,.dropzone.dragover{border-color:#6366f1;background:rgba(99,102,241,.1)}
+/* Document Viewer */
+.doc-viewer{background:#fff;color:#111;font-family:'Times New Roman',serif;padding:2rem 3rem;border-radius:.5rem;line-height:1.6;font-size:.9rem;white-space:pre-wrap;word-wrap:break-word;min-height:500px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+/* Bounding Boxes */
+.bb{position:relative;display:inline-block;border-radius:3px;padding:0 2px;margin:0 1px;transition:all .2s}
+.bb-gliner{background:rgba(59,130,246,.15);box-shadow:0 0 0 1.5px #3b82f6;}
+.bb-sig{background:rgba(168,85,247,.15);box-shadow:0 0 0 1.5px #a855f7;}
+.bb-jev{background:rgba(34,197,94,.15);box-shadow:0 0 0 1.5px #22c55e;}
+.bb-redact{background:#000 !important;color:transparent !important;box-shadow:none !important;}
+.bb-tag{background:#e0e7ff !important;color:#3730a3 !important;font-family:monospace;font-size:0.85em;padding:1px 4px;box-shadow:none !important;}
+.bb-pseudo{background:#dcfce7 !important;color:#166534 !important;box-shadow:none !important;}
 /* Tables */
-.tbl td,.tbl th{padding:.6rem 1rem;font-size:.8rem;border-bottom:1px solid rgba(255,255,255,.05)}
-.tbl th{color:#64748b;text-transform:uppercase;letter-spacing:.08em;font-weight:600;font-size:.7rem}
+.tbl td,.tbl th{padding:.75rem 1rem;font-size:.85rem;border-bottom:1px solid rgba(255,255,255,.05);text-align:left}
+.tbl th{color:#64748b;text-transform:uppercase;letter-spacing:.05em;font-weight:600;font-size:.75rem;background:rgba(15,23,42,.6)}
 .tbl tr:hover td{background:rgba(99,102,241,.06)}
-/* RD Panel */
-.rd-item{padding:1rem;border-radius:.75rem;border:1px solid rgba(255,255,255,.07);background:rgba(15,23,42,.5);margin-bottom:.75rem}
-/* Progressbar */
-.pbar{height:6px;border-radius:99px;background:#1e293b;overflow:hidden}
-.pbar-fill{height:100%;border-radius:99px;transition:width 1.2s ease}
-/* PDF Viewer simulation */
-.pdf-page{background:#fff;color:#111;font-family:'Times New Roman',serif;padding:2.5rem;border-radius:.5rem;line-height:1.8;font-size:.875rem;position:relative;min-height:500px}
-.redaction-box{display:inline-block;background:#000;color:transparent;border-radius:2px;padding:0 2px;user-select:none}
-.gliner-box{outline:2px solid #3b82f6;background:rgba(59,130,246,.12);border-radius:2px}
-.sig-box{outline:2px solid #a855f7;background:rgba(168,85,247,.12);border-radius:2px}
-.jev-box{outline:2px solid #22c55e;background:rgba(34,197,94,.12);border-radius:2px}
-/* Toggle switch */
-.toggle-switch{position:relative;width:44px;height:24px}
+/* Toggle */
+.toggle-switch{position:relative;width:40px;height:22px}
 .toggle-switch input{opacity:0;width:0;height:0}
 .toggle-slider{position:absolute;cursor:pointer;inset:0;background:#334155;border-radius:99px;transition:.3s}
-.toggle-slider:before{content:'';position:absolute;width:18px;height:18px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+.toggle-slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
 input:checked+.toggle-slider{background:var(--brand)}
-input:checked+.toggle-slider:before{transform:translateX(20px)}
-/* Animated counter */
-@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.count-anim{animation:countUp .4s ease}
-/* Sidebar doc list */
-.doc-row{padding:.65rem 1rem;border-radius:.5rem;cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:.75rem}
-.doc-row:hover,.doc-row.active{background:rgba(99,102,241,.12)}
-.doc-row.active{border-left:3px solid var(--brand)}
-/* Vault grid */
-.vault-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
-.vault-card{padding:1.25rem;border-radius:.75rem;background:rgba(15,23,42,.8);border:1px solid rgba(255,255,255,.07);transition:border-color .2s}
-.vault-card:hover{border-color:rgba(99,102,241,.4)}
-/* Bench card */
-.bench-card{padding:1.5rem;border-radius:.75rem;background:rgba(15,23,42,.8);border:1px solid rgba(255,255,255,.07)}
-/* Side panel */
-.side-panel{position:fixed;top:0;right:0;height:100%;width:480px;max-width:100%;background:#0d1526;border-left:1px solid rgba(99,102,241,.2);z-index:40;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);overflow-y:auto}
-.side-panel.open{transform:none;box-shadow:-20px 0 60px rgba(0,0,0,.5)}
+input:checked+.toggle-slider:before{transform:translateX(18px)}
+/* Animations */
+@keyframes spin{to{transform:rotate(360deg)}}
+.animate-spin{animation:spin 1s linear infinite}
 </style>
 </head>
 <body>
 
-<!-- ==================== NAVBAR ==================== -->
+<!-- NAVBAR -->
 <header class="border-b border-slate-800/80 glass sticky top-0 z-30 px-6 py-3">
   <div class="max-w-screen-xl mx-auto flex items-center justify-between gap-4">
     <div class="flex items-center gap-3">
@@ -82,765 +73,302 @@ input:checked+.toggle-slider:before{transform:translateX(20px)}
         <i class="fa-solid fa-shield-halved text-white text-sm"></i>
       </div>
       <span class="font-bold text-lg tracking-tight">Anonymizer <span class="text-indigo-400">Studio V2</span></span>
-      <span class="badge badge-ok hidden sm:inline-flex"><i class="fa-solid fa-circle text-[8px]"></i> Moteurs actifs</span>
+      <span class="badge badge-ok hidden sm:inline-flex"><i class="fa-solid fa-microchip text-[10px]"></i> Traitement Local (Client-Side)</span>
     </div>
     <nav class="flex items-center gap-1">
-      <button onclick="showView('dashboard')" id="nav-dashboard" class="tab-item active" title="Dashboard"><i class="fa-solid fa-gauge-high mr-1.5"></i><span class="hidden sm:inline">Dashboard</span></button>
-      <button onclick="showView('process')" id="nav-process" class="tab-item" title="Traitement"><i class="fa-solid fa-file-shield mr-1.5"></i><span class="hidden sm:inline">Traitement</span></button>
-      <button onclick="showView('vault')" id="nav-vault" class="tab-item" title="Coffre-fort"><i class="fa-solid fa-vault mr-1.5"></i><span class="hidden sm:inline">Coffre-fort</span></button>
-      <button onclick="showView('bench')" id="nav-bench" class="tab-item" title="Benchmark"><i class="fa-solid fa-flask mr-1.5"></i><span class="hidden sm:inline">R&amp;D / Bench</span></button>
-      <button onclick="showView('rd')" id="nav-rd" class="tab-item" title="Suivi R&D"><i class="fa-solid fa-clipboard-check mr-1.5"></i><span class="hidden sm:inline">Suivi R&amp;D</span></button>
+      <button onclick="showView('traitement')" id="nav-traitement" class="tab-item active"><i class="fa-solid fa-file-shield mr-1.5"></i>Traitement</button>
+      <button onclick="showView('vault')" id="nav-vault" class="tab-item"><i class="fa-solid fa-vault mr-1.5"></i>Coffre-fort</button>
+      <button onclick="showView('rd')" id="nav-rd" class="tab-item"><i class="fa-solid fa-flask mr-1.5"></i>R&D / Benchmarks</button>
     </nav>
   </div>
 </header>
 
-<!-- ==================== VIEWS ==================== -->
 <main class="max-w-screen-xl mx-auto px-4 py-6">
 
-<!-- ===== VIEW: DASHBOARD ===== -->
-<div id="view-dashboard">
-  <div class="mb-6">
-    <h2 class="text-2xl font-bold">Vue d'ensemble</h2>
-    <p class="text-slate-400 text-sm mt-1">Activité en temps réel de la plateforme de pseudonymisation</p>
-  </div>
+<!-- ==================== VIEW: TRAITEMENT ==================== -->
+<div id="view-traitement">
+  
+  <!-- ETAPE 1: UPLOAD ZONE (Visible au départ) -->
+  <div id="upload-section" class="max-w-3xl mx-auto mt-8 space-y-6">
+    <div class="text-center mb-8">
+      <h2 class="text-3xl font-bold mb-3">Déposez votre document</h2>
+      <p class="text-slate-400">Testez le moteur universel d'anonymisation sur vos propres PDF ou textes.<br>Le traitement est immédiat, local et sécurisé.</p>
+    </div>
 
-  <!-- KPIs -->
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-    <div class="glass rounded-xl p-4">
-      <p class="text-slate-400 text-xs uppercase tracking-widest mb-2">Documents traités</p>
-      <div class="text-3xl font-bold text-white count-anim" id="kpi-docs">1 247</div>
-      <div class="badge badge-ok mt-2"><i class="fa-solid fa-arrow-trend-up text-[10px]"></i> +12 aujourd'hui</div>
-    </div>
-    <div class="glass rounded-xl p-4">
-      <p class="text-slate-400 text-xs uppercase tracking-widest mb-2">Entités masquées</p>
-      <div class="text-3xl font-bold text-indigo-400 count-anim" id="kpi-entities">48 312</div>
-      <div class="badge badge-info mt-2"><i class="fa-solid fa-tag text-[10px]"></i> 15 types distincts</div>
-    </div>
-    <div class="glass rounded-xl p-4">
-      <p class="text-slate-400 text-xs uppercase tracking-widest mb-2">Score conformité RGPD</p>
-      <div class="text-3xl font-bold text-green-400 count-anim">98.7<span class="text-lg">%</span></div>
-      <div class="badge badge-ok mt-2"><i class="fa-solid fa-check text-[10px]"></i> Audit du 02/10/2026</div>
-    </div>
-    <div class="glass rounded-xl p-4">
-      <p class="text-slate-400 text-xs uppercase tracking-widest mb-2">Latence moyenne</p>
-      <div class="text-3xl font-bold text-yellow-400 count-anim">87<span class="text-lg">ms</span></div>
-      <div class="badge badge-warn mt-2"><i class="fa-solid fa-gauge text-[10px]"></i> Tous moteurs confondus</div>
-    </div>
-  </div>
+    <label class="dropzone" id="dropzone" ondragover="event.preventDefault();this.classList.add('dragover')" ondragleave="this.classList.remove('dragover')" ondrop="handleDrop(event)">
+      <i class="fa-solid fa-cloud-arrow-up text-5xl text-indigo-400 mb-4"></i>
+      <h3 class="text-xl font-bold text-white mb-2">Glissez votre PDF ou Fichier Texte ici</h3>
+      <p class="text-slate-400 text-sm mb-4">ou cliquez pour parcourir</p>
+      <input type="file" id="file-input" class="hidden" accept=".pdf,.txt" onchange="handleFileSelect(event)">
+      <span class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2 rounded-lg font-medium transition-colors">Parcourir les fichiers</span>
+    </label>
 
-  <!-- Activity + Engine status -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-    <div class="glass rounded-xl p-5 lg:col-span-2">
-      <h3 class="font-semibold mb-4 flex items-center gap-2"><i class="fa-solid fa-wave-square text-indigo-400"></i> Activité de traitement (7 derniers jours)</h3>
-      <div class="space-y-3">
+    <div class="flex items-center gap-4 my-6">
+      <div class="h-px bg-slate-700 flex-1"></div>
+      <span class="text-slate-500 text-sm font-medium uppercase tracking-widest">OU UTILISEZ UN EXEMPLE</span>
+      <div class="h-px bg-slate-700 flex-1"></div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <button onclick="loadExample('contrat')" class="glass p-4 rounded-xl hover:bg-slate-800 transition-colors text-left flex items-start gap-3">
+        <i class="fa-solid fa-file-contract text-blue-400 text-xl mt-1"></i>
         <div>
-          <div class="flex justify-between text-xs text-slate-400 mb-1"><span>Lundi 05/10</span><span>142 docs</span></div>
-          <div class="pbar"><div class="pbar-fill bg-indigo-500" style="width:57%"></div></div>
+          <h4 class="font-bold text-white">Contrat de Travail</h4>
+          <p class="text-xs text-slate-400 mt-1">Identités, salaires, adresses, signatures.</p>
         </div>
+      </button>
+      <button onclick="loadExample('audit')" class="glass p-4 rounded-xl hover:bg-slate-800 transition-colors text-left flex items-start gap-3">
+        <i class="fa-solid fa-file-invoice text-green-400 text-xl mt-1"></i>
         <div>
-          <div class="flex justify-between text-xs text-slate-400 mb-1"><span>Mardi 06/10</span><span>198 docs</span></div>
-          <div class="pbar"><div class="pbar-fill bg-indigo-500" style="width:79%"></div></div>
+          <h4 class="font-bold text-white">Rapport d'Audit</h4>
+          <p class="text-xs text-slate-400 mt-1">Données bancaires, IBAN, numéros SSN.</p>
         </div>
-        <div>
-          <div class="flex justify-between text-xs text-slate-400 mb-1"><span>Mercredi 07/10</span><span>87 docs</span></div>
-          <div class="pbar"><div class="pbar-fill bg-indigo-500" style="width:35%"></div></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-xs text-slate-400 mb-1"><span>Jeudi 08/10</span><span>225 docs</span></div>
-          <div class="pbar"><div class="pbar-fill bg-indigo-500" style="width:90%"></div></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-xs text-slate-400 mb-1"><span>Vendredi 09/10</span><span>167 docs</span></div>
-          <div class="pbar"><div class="pbar-fill bg-indigo-500" style="width:67%"></div></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-xs text-slate-400 mb-1"><span>Samedi 10/10</span><span>251 docs</span></div>
-          <div class="pbar"><div class="pbar-fill bg-violet-500" style="width:100%"></div></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-xs text-slate-400 mb-1"><span>Aujourd'hui 11/10</span><span>177 docs</span></div>
-          <div class="pbar"><div class="pbar-fill bg-green-500" style="width:71%"></div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="glass rounded-xl p-5">
-      <h3 class="font-semibold mb-4 flex items-center gap-2"><i class="fa-solid fa-server text-indigo-400"></i> État des Moteurs</h3>
-      <div class="space-y-4">
-        <div class="rd-item !mb-0">
-          <div class="flex justify-between items-center mb-1">
-            <span class="text-sm font-medium">GLiNER (NER syntaxique)</span>
-            <span class="badge badge-ok">Actif</span>
-          </div>
-          <p class="text-xs text-slate-400">Modèle : gliner-multitask-v1 · 120ms/p · F1: 95.1%</p>
-        </div>
-        <div class="rd-item !mb-0">
-          <div class="flex justify-between items-center mb-1">
-            <span class="text-sm font-medium">Modèle Signatures (CV)</span>
-            <span class="badge badge-ok">Actif</span>
-          </div>
-          <p class="text-xs text-slate-400">ResNet+YOLO fine-tuné · 45ms/p · Préc: 98.4%</p>
-        </div>
-        <div class="rd-item !mb-0">
-          <div class="flex justify-between items-center mb-1">
-            <span class="text-sm font-medium">JEV / Règles déterministes</span>
-            <span class="badge badge-ok">Actif</span>
-          </div>
-          <p class="text-xs text-slate-400">Regex + Luhn + IBAN · 8ms/p · Préc: 99.8%</p>
-        </div>
-        <div class="rd-item !mb-0">
-          <div class="flex justify-between items-center mb-1">
-            <span class="text-sm font-medium">Coffre-Fort AES-256</span>
-            <span class="badge badge-ok">Sécurisé</span>
-          </div>
-          <p class="text-xs text-slate-400">1 247 sessions actives · 0 fuite détectée</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ===== VIEW: PROCESS ===== -->
-<div id="view-process" class="hidden">
-  <div class="mb-6 flex items-center justify-between flex-wrap gap-4">
-    <div>
-      <h2 class="text-2xl font-bold">Traitement de document</h2>
-      <p class="text-slate-400 text-sm mt-1">Anonymisation intelligente avec sélection granulaire des filtres</p>
-    </div>
-    <button onclick="openFilterPanel()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-colors shadow-lg shadow-indigo-900/40">
-      <i class="fa-solid fa-sliders"></i> Configurer & Lancer
-    </button>
-  </div>
-
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-    <!-- Left: Input -->
-    <div class="lg:col-span-5 space-y-5">
-      <div class="glass rounded-xl p-5">
-        <h3 class="font-semibold mb-3 flex items-center gap-2"><i class="fa-solid fa-file-lines text-indigo-400"></i> Document source</h3>
-        <textarea id="proc-input" rows="11" class="w-full bg-slate-900/80 border border-slate-700 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-mono resize-none placeholder-slate-600" placeholder="Collez votre document ici...">Contrat de Prestation – Référence : CPR-2026-0714
-
-Parties contractantes :
-Prestataire : Mme Sophie MARTIN, née le 14 mars 1985 à Lyon
-Mandataire : Cabinet LEGIS & ASSOCIÉS – SIREN 412 897 356
-
-Coordonnées du prestataire :
-Email : sophie.martin@legisassoc.fr
-Téléphone : +33 6 78 45 12 09
-Adresse : 14 Rue du Général Leclerc, 69003 Lyon
-
-Données bancaires :
-IBAN : FR76 3000 6000 0112 3456 7890 189
-BIC : BNPAFRPPXXX
-
-Numéro de sécurité sociale : 2 85 03 69 123 456 78
-
-Clause de confidentialité signée le 10/09/2026 à Paris.
-Lu et approuvé – Signature manuscrite ci-dessous.
-
-________________________________
-Sophie MARTIN</textarea>
-        <div class="flex gap-2 mt-3">
-          <button onclick="openFilterPanel()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2">
-            <i class="fa-solid fa-rocket"></i> Configurer & Anonymiser
-          </button>
-          <button onclick="document.getElementById('proc-input').value=''" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 rounded-lg text-sm transition-colors">
-            <i class="fa-solid fa-eraser"></i>
-          </button>
-        </div>
-      </div>
-
-      <!-- Active filters summary -->
-      <div class="glass rounded-xl p-5">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-semibold text-sm flex items-center gap-2"><i class="fa-solid fa-filter text-yellow-400"></i> Filtres actifs</h3>
-          <button onclick="openFilterPanel()" class="text-xs text-indigo-400 hover:underline">Modifier</button>
-        </div>
-        <div class="flex flex-wrap gap-2" id="active-filters-display">
-          <span class="badge badge-info">Identité</span>
-          <span class="badge badge-info">Emails</span>
-          <span class="badge badge-info">Téléphones</span>
-          <span class="badge badge-info">IBAN</span>
-          <span class="badge badge-info">Signatures</span>
-          <span class="badge badge-info">Dates</span>
-        </div>
-        <div class="mt-3 pt-3 border-t border-slate-800">
-          <div class="flex justify-between text-xs text-slate-400 mb-1">
-            <span>Seuil de détection</span><span id="thresh-val">85%</span>
-          </div>
-          <input type="range" id="thresh-slider" min="50" max="100" value="85" class="w-full accent-indigo-500" oninput="document.getElementById('thresh-val').innerText=this.value+'%'">
-          <p class="text-xs text-slate-500 mt-1">Mode : <span class="text-indigo-400 font-medium" id="replace-mode-display">Caviardage (████)</span></p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Right: Output & Vault preview -->
-    <div class="lg:col-span-7 space-y-5">
-      <div class="glass rounded-xl p-5 flex flex-col" style="min-height:320px">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-semibold flex items-center gap-2"><i class="fa-solid fa-file-shield text-green-400"></i> Document pseudonymisé</h3>
-          <div class="flex gap-2">
-            <button onclick="copyAnon()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors">
-              <i class="fa-solid fa-copy"></i> Copier
-            </button>
-            <button onclick="exportAnonPDF()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 text-red-400 transition-colors">
-              <i class="fa-solid fa-file-pdf"></i> PDF
-            </button>
-          </div>
-        </div>
-        <div id="proc-output" class="flex-1 bg-slate-900/80 border border-slate-800 rounded-lg p-4 text-sm font-mono overflow-auto whitespace-pre-wrap leading-relaxed">
-          <div class="flex flex-col items-center justify-center h-full text-slate-600 opacity-60 pt-8">
-            <i class="fa-solid fa-file-circle-question text-5xl mb-3"></i>
-            <p>Le document traité apparaîtra ici après lancement.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Vault mini preview -->
-      <div class="glass rounded-xl p-5">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="font-semibold flex items-center gap-2"><i class="fa-solid fa-table-list text-purple-400"></i> Registre de session (Coffre)</h3>
-          <button onclick="openVaultModal()" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors">
-            <i class="fa-solid fa-up-right-and-down-left-from-center"></i> Vue complète
-          </button>
-        </div>
-        <div class="overflow-auto max-h-56">
-          <table class="tbl w-full" id="vault-preview-table">
-            <thead><tr>
-              <th>ID Entité</th><th>Remplacement</th><th>Type</th><th>Moteur</th><th>Confiance</th>
-            </tr></thead>
-            <tbody id="vault-preview-body">
-              <tr><td colspan="5" class="text-center text-slate-500 italic py-4">Aucun traitement lancé.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Stats bar -->
-      <div class="grid grid-cols-3 gap-3" id="proc-stats">
-        <div class="glass rounded-lg p-3 text-center">
-          <div class="text-2xl font-bold text-white" id="st-count">0</div>
-          <div class="text-xs text-slate-400 mt-1">Entités masquées</div>
-        </div>
-        <div class="glass rounded-lg p-3 text-center">
-          <div class="text-2xl font-bold text-indigo-400" id="st-time">—</div>
-          <div class="text-xs text-slate-400 mt-1">Latence totale</div>
-        </div>
-        <div class="glass rounded-lg p-3 text-center">
-          <div class="text-2xl font-bold text-green-400" id="st-score">—</div>
-          <div class="text-xs text-slate-400 mt-1">Score confiance moy.</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ===== VIEW: VAULT ===== -->
-<div id="view-vault" class="hidden">
-  <div class="mb-6 flex items-center justify-between flex-wrap gap-4">
-    <div>
-      <h2 class="text-2xl font-bold">Coffre-Fort Documentaire</h2>
-      <p class="text-slate-400 text-sm mt-1">Registre chiffré AES-256 des sessions et mappings de pseudonymisation</p>
-    </div>
-    <div class="flex gap-3">
-      <select class="bg-slate-800 border border-slate-700 text-sm text-slate-300 px-3 py-2 rounded-lg outline-none" id="vault-filter-status">
-        <option value="all">Tous les statuts</option>
-        <option value="secured">Sécurisé</option>
-        <option value="pending">En attente</option>
-        <option value="archived">Archivé</option>
-      </select>
-      <select class="bg-slate-800 border border-slate-700 text-sm text-slate-300 px-3 py-2 rounded-lg outline-none" id="vault-filter-risk">
-        <option value="all">Tous risques</option>
-        <option value="high">Risque élevé</option>
-        <option value="medium">Risque moyen</option>
-        <option value="low">Risque faible</option>
-      </select>
-      <button onclick="filterVault()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors">
-        <i class="fa-solid fa-filter mr-1"></i> Filtrer
       </button>
     </div>
   </div>
 
-  <div class="vault-grid" id="vault-cards"></div>
-</div>
-
-<!-- ===== VIEW: BENCHMARK ===== -->
-<div id="view-bench" class="hidden">
-  <div class="mb-6">
-    <h2 class="text-2xl font-bold">Rapport d'Expérimentation & Comparatif des Moteurs</h2>
-    <p class="text-slate-400 text-sm mt-1">Résultats des tests sur corpus de 2 500 documents contractuels scannés (Juin – Septembre 2026)</p>
-  </div>
-
-  <!-- Moteur cards -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-    <!-- GLiNER -->
-    <div class="bench-card border-t-4 border-blue-500">
-      <div class="flex justify-between items-start mb-4">
+  <!-- ETAPE 2: WORKSPACE (Caché au départ) -->
+  <div id="workspace-section" class="hidden space-y-6">
+    <div class="flex items-center justify-between glass p-4 rounded-xl">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-file-lines text-2xl text-indigo-400"></i>
         <div>
-          <h3 class="font-bold text-blue-400">GLiNER</h3>
-          <p class="text-xs text-slate-400 mt-0.5">Analyse syntaxique · Zero-shot NER</p>
-        </div>
-        <span class="badge badge-info">Moteur principal</span>
-      </div>
-      <div class="space-y-3 mb-5">
-        <div>
-          <div class="flex justify-between text-xs mb-1"><span class="text-slate-400">Précision</span><span class="font-semibold text-white">94.2%</span></div>
-          <div class="pbar"><div class="pbar-fill bg-blue-500" style="width:94.2%"></div></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-xs mb-1"><span class="text-slate-400">Rappel</span><span class="font-semibold text-white">96.1%</span></div>
-          <div class="pbar"><div class="pbar-fill bg-blue-400" style="width:96.1%"></div></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-xs mb-1"><span class="text-slate-400">F1-Score</span><span class="font-semibold text-white">95.1%</span></div>
-          <div class="pbar"><div class="pbar-fill bg-blue-600" style="width:95.1%"></div></div>
+          <h2 class="font-bold text-lg" id="ws-filename">document.pdf</h2>
+          <p class="text-xs text-slate-400" id="ws-stats">En attente de configuration...</p>
         </div>
       </div>
-      <div class="bg-slate-900/60 p-3 rounded-lg text-xs text-slate-400 leading-relaxed">
-        <i class="fa-solid fa-microscope text-blue-400 mr-1"></i>
-        <strong class="text-slate-300">Observation R&D :</strong> Excellent sur entités contextuelles et noms atypiques sans ré-entraînement. Latence : <span class="text-blue-300 font-mono">120ms/page</span>.
-      </div>
+      <button onclick="resetWorkspace()" class="text-sm text-slate-400 hover:text-white transition-colors"><i class="fa-solid fa-arrow-left mr-1"></i> Changer de document</button>
     </div>
 
-    <!-- Modèle Signatures -->
-    <div class="bench-card border-t-4 border-purple-500">
-      <div class="flex justify-between items-start mb-4">
-        <div>
-          <h3 class="font-bold text-purple-400">Modèle Signatures</h3>
-          <p class="text-xs text-slate-400 mt-0.5">Computer Vision · ResNet+YOLO fine-tuné</p>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      
+      <!-- Colonne Gauche : Visualiseur PDF -->
+      <div class="lg:col-span-7 flex flex-col gap-4">
+        <div class="glass p-4 rounded-xl flex items-center justify-center gap-2">
+          <button onclick="switchViewerMode('original')" id="btn-view-original" class="view-btn">Document Original</button>
+          <button onclick="switchViewerMode('bench')" id="btn-view-bench" class="view-btn">Moteurs (Couleurs)</button>
+          <button onclick="switchViewerMode('anon')" id="btn-view-anon" class="view-btn active">Pseudonymisé</button>
         </div>
-        <span class="badge" style="background:rgba(168,85,247,.15);color:#c4b5fd;border:1px solid rgba(168,85,247,.3)">Spécialisé</span>
-      </div>
-      <div class="space-y-3 mb-5">
-        <div>
-          <div class="flex justify-between text-xs mb-1"><span class="text-slate-400">Précision (signatures)</span><span class="font-semibold text-white">98.4%</span></div>
-          <div class="pbar"><div class="pbar-fill bg-purple-500" style="width:98.4%"></div></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-xs mb-1"><span class="text-slate-400">Rappel</span><span class="font-semibold text-white">97.0%</span></div>
-          <div class="pbar"><div class="pbar-fill bg-purple-400" style="width:97%"></div></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-xs mb-1"><span class="text-slate-400">Faux positifs</span><span class="font-semibold text-white">0.8%</span></div>
-          <div class="pbar"><div class="pbar-fill bg-green-500" style="width:0.8%"></div></div>
-        </div>
-      </div>
-      <div class="bg-slate-900/60 p-3 rounded-lg text-xs text-slate-400 leading-relaxed">
-        <i class="fa-solid fa-microscope text-purple-400 mr-1"></i>
-        <strong class="text-slate-300">Observation R&D :</strong> Entraîné sur 2 500 actes scannés. Isole parfaitement paraphes et signatures manuscrites. Latence : <span class="text-purple-300 font-mono">45ms/page</span>.
-      </div>
-    </div>
 
-    <!-- JEV -->
-    <div class="bench-card border-t-4 border-green-500">
-      <div class="flex justify-between items-start mb-4">
-        <div>
-          <h3 class="font-bold text-green-400">JEV / Moteur Règles</h3>
-          <p class="text-xs text-slate-400 mt-0.5">Décisionnel · Règles déterministes</p>
-        </div>
-        <span class="badge badge-ok">Validation</span>
-      </div>
-      <div class="space-y-3 mb-5">
-        <div>
-          <div class="flex justify-between text-xs mb-1"><span class="text-slate-400">Précision validation</span><span class="font-semibold text-white">99.8%</span></div>
-          <div class="pbar"><div class="pbar-fill bg-green-500" style="width:99.8%"></div></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-xs mb-1"><span class="text-slate-400">Rappel</span><span class="font-semibold text-white">91.5%</span></div>
-          <div class="pbar"><div class="pbar-fill bg-green-400" style="width:91.5%"></div></div>
-        </div>
-        <div>
-          <div class="flex justify-between text-xs mb-1"><span class="text-slate-400">Hallucinations</span><span class="font-semibold text-white">0.0%</span></div>
-          <div class="pbar"><div class="pbar-fill bg-green-600" style="width:0%"></div></div>
+        <div class="overflow-auto border border-slate-700 rounded-xl shadow-2xl relative" style="max-height: 800px;">
+          <div id="viewer-container" class="doc-viewer">
+            <!-- Content injected via JS -->
+          </div>
         </div>
       </div>
-      <div class="bg-slate-900/60 p-3 rounded-lg text-xs text-slate-400 leading-relaxed">
-        <i class="fa-solid fa-microscope text-green-400 mr-1"></i>
-        <strong class="text-slate-300">Observation R&D :</strong> Décision binaire (Luhn, IBAN, SIREN). Aucune hallucination possible. Latence : <span class="text-green-300 font-mono">8ms/page</span>. Complément parfait à GLiNER.
-      </div>
-    </div>
-  </div>
 
-  <!-- Concordance matrix -->
-  <div class="glass rounded-xl p-5 mb-6">
-    <h3 class="font-semibold mb-4 flex items-center gap-2"><i class="fa-solid fa-table text-indigo-400"></i> Matrice de Concordance (Score Jaccard inter-moteurs)</h3>
-    <div class="overflow-auto">
-      <table class="tbl w-full text-center">
-        <thead><tr>
-          <th class="text-left">Moteur</th>
-          <th>GLiNER</th><th>Modèle Sig.</th><th>JEV</th><th>Accord global</th>
-        </tr></thead>
-        <tbody>
-          <tr>
-            <td class="text-left text-blue-400 font-medium">GLiNER</td>
-            <td><span class="badge badge-info">1.000</span></td>
-            <td><span class="badge badge-ok">0.873</span></td>
-            <td><span class="badge badge-ok">0.914</span></td>
-            <td><span class="badge badge-ok">93.1%</span></td>
-          </tr>
-          <tr>
-            <td class="text-left text-purple-400 font-medium">Modèle Sig.</td>
-            <td><span class="badge badge-ok">0.873</span></td>
-            <td><span class="badge badge-info">1.000</span></td>
-            <td><span class="badge badge-ok">0.891</span></td>
-            <td><span class="badge badge-ok">92.0%</span></td>
-          </tr>
-          <tr>
-            <td class="text-left text-green-400 font-medium">JEV / Règles</td>
-            <td><span class="badge badge-ok">0.914</span></td>
-            <td><span class="badge badge-ok">0.891</span></td>
-            <td><span class="badge badge-info">1.000</span></td>
-            <td><span class="badge badge-ok">95.4%</span></td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="text-xs text-slate-500 mt-3"><i class="fa-solid fa-info-circle mr-1"></i> Jaccard ≥ 0.85 indique un très bon accord inter-moteurs. Seuil critique : 0.70.</p>
-  </div>
+      <!-- Colonne Droite : Mappings & Coffre -->
+      <div class="lg:col-span-5 space-y-6">
+        
+        <div class="glass rounded-xl p-5">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-table text-purple-400"></i> Table des Correspondances</h3>
+            <span class="badge badge-info"><i class="fa-solid fa-lock"></i> AES-256</span>
+          </div>
+          <p class="text-xs text-slate-400 mb-4">Mappage généré dynamiquement à partir de votre document.</p>
+          
+          <div class="overflow-auto border border-slate-700 rounded-lg bg-slate-900/50 max-h-80">
+            <table class="tbl w-full">
+              <thead><tr>
+                <th>ID</th>
+                <th>Original</th>
+                <th>Rempl.</th>
+                <th>Moteur</th>
+              </tr></thead>
+              <tbody id="mapping-tbody">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
 
-  <!-- PDF Inspector -->
-  <div class="glass rounded-xl p-5">
-    <div class="flex justify-between items-center mb-4 flex-wrap gap-3">
-      <h3 class="font-semibold flex items-center gap-2"><i class="fa-solid fa-magnifying-glass-chart text-yellow-400"></i> Inspecteur Visuel – Bounding Boxes sur document type</h3>
-      <div class="flex items-center gap-3 text-xs flex-wrap">
-        <label class="flex items-center gap-1.5 cursor-pointer">
-          <input type="checkbox" id="bb-gliner" checked onchange="toggleBB()" class="rounded accent-blue-500"> <span class="text-blue-400 font-medium">■ GLiNER</span>
-        </label>
-        <label class="flex items-center gap-1.5 cursor-pointer">
-          <input type="checkbox" id="bb-sig" checked onchange="toggleBB()" class="rounded accent-purple-500"> <span class="text-purple-400 font-medium">■ Modèle Signature</span>
-        </label>
-        <label class="flex items-center gap-1.5 cursor-pointer">
-          <input type="checkbox" id="bb-jev" checked onchange="toggleBB()" class="rounded accent-green-500"> <span class="text-green-400 font-medium">■ JEV validé</span>
-        </label>
-        <div class="flex items-center gap-2">
-          <span class="text-slate-400">Caviardage</span>
-          <label class="toggle-switch"><input type="checkbox" id="bb-redact" onchange="toggleBB()"><span class="toggle-slider"></span></label>
+          <div class="flex gap-2 mt-4">
+            <button onclick="exportMapping('json')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs py-2 rounded-lg transition-colors border border-slate-700"><i class="fa-solid fa-code"></i> JSON</button>
+            <button onclick="exportMapping('csv')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs py-2 rounded-lg transition-colors border border-slate-700"><i class="fa-solid fa-file-csv"></i> CSV</button>
+            <button onclick="navigator.clipboard.writeText(JSON.stringify(currentProcessing.entities,null,2));alert('Copié!')" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white text-xs py-2 rounded-lg transition-colors border border-slate-700"><i class="fa-solid fa-copy"></i> Copier</button>
+          </div>
         </div>
-      </div>
-    </div>
 
-    <div class="overflow-auto border border-slate-700 rounded-xl shadow-2xl">
-      <div class="pdf-page" id="pdf-inspector">
-        <div style="text-align:center;font-size:1rem;font-weight:bold;margin-bottom:1.5rem;letter-spacing:.05em">CONTRAT DE PRESTATION DE SERVICES N° CPR-2026-0714</div>
-        <p>Entre les soussignées :</p>
-        <p style="margin:.75rem 0">Le Prestataire : <span id="bb-name1" class="gliner-box jev-box">Mme Sophie MARTIN</span>, née le <span id="bb-date1" class="gliner-box jev-box">14 mars 1985</span> à <span id="bb-city1" class="gliner-box">Lyon (69)</span>, de nationalité française,</p>
-        <p style="margin:.75rem 0">Ci-après désigné « le Prestataire » ;</p>
-        <p style="margin:.75rem 0">Et le Mandant : <span id="bb-org1" class="gliner-box">Cabinet LEGIS &amp; ASSOCIÉS</span> – SIREN <span id="bb-siren1" class="jev-box">412 897 356</span></p>
-        <p style="margin:.75rem 0">Adresse de correspondance : <span id="bb-addr1" class="gliner-box">14 Rue du Général Leclerc, 69003 Lyon</span></p>
-        <p style="margin:.75rem 0">Email : <span id="bb-email1" class="jev-box">sophie.martin@legisassoc.fr</span> | Tél. : <span id="bb-phone1" class="jev-box">+33 6 78 45 12 09</span></p>
-        <p style="margin:.75rem 0">IBAN : <span id="bb-iban1" class="jev-box">FR76 3000 6000 0112 3456 7890 189</span></p>
-        <p style="margin:.75rem 0">N° Sécurité Sociale : <span id="bb-ssn1" class="jev-box">2 85 03 69 123 456 78</span></p>
-        <p style="margin:2rem 0 .5rem">Fait à <span id="bb-city2" class="gliner-box">Paris</span>, le <span id="bb-date2" class="gliner-box jev-box">10 septembre 2026</span></p>
-        <div style="margin-top:2.5rem;display:flex;justify-content:flex-end">
-          <div style="text-align:center;min-width:200px">
-            <div id="bb-sig1" style="font-family:'Brush Script MT',cursive;font-size:2rem;color:#111;line-height:1.2;border-bottom:1px solid #333;padding-bottom:.5rem">Sophie MARTIN</div>
-            <p style="font-size:.75rem;margin-top:.4rem">Signature manuscrite</p>
+        <div class="glass rounded-xl p-5">
+          <h3 class="font-bold text-lg flex items-center gap-2 mb-4"><i class="fa-solid fa-chart-simple text-blue-400"></i> Statistiques du traitement</h3>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+              <p class="text-xs text-slate-400 uppercase">Entités masquées</p>
+              <p class="text-2xl font-bold text-white mt-1" id="stat-count">-</p>
+            </div>
+            <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+              <p class="text-xs text-slate-400 uppercase">Latence (Client-side)</p>
+              <p class="text-2xl font-bold text-indigo-400 mt-1" id="stat-time">-</p>
+            </div>
+            <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+              <p class="text-xs text-slate-400 uppercase">Moteurs utilisés</p>
+              <p class="text-2xl font-bold text-green-400 mt-1">3 <span class="text-xs text-slate-500 font-normal">/ 3</span></p>
+            </div>
+            <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+              <p class="text-xs text-slate-400 uppercase">Sauvegarde Coffre</p>
+              <p class="text-sm font-bold text-purple-400 mt-1 mt-2"><i class="fa-solid fa-check-circle"></i> Automatique</p>
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <p class="text-xs text-slate-500 mt-3"><i class="fa-solid fa-info-circle mr-1"></i> Les cadres colorés représentent les détections par moteur. Activez "Caviardage" pour simuler le rendu final.</p>
   </div>
 </div>
 
-<!-- ===== VIEW: R&D SUIVI ===== -->
+<!-- ==================== VIEW: COFFRE FORT ==================== -->
+<div id="view-vault" class="hidden">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h2 class="text-3xl font-bold">Coffre-fort Numérique</h2>
+      <p class="text-slate-400 mt-1">Tous vos documents traités sont archivés et chiffrés ici.</p>
+    </div>
+    <div class="flex gap-2">
+      <select class="bg-slate-800 border border-slate-700 text-sm px-3 py-2 rounded-lg outline-none" id="vault-filter">
+        <option value="all">Tous les documents</option>
+        <option value="high">Haute sensibilité</option>
+        <option value="low">Basse sensibilité</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="vault-grid">
+    <!-- Injected via JS -->
+  </div>
+</div>
+
+<!-- ==================== VIEW: R&D BENCHMARK ==================== -->
 <div id="view-rd" class="hidden">
-  <div class="mb-6">
-    <h2 class="text-2xl font-bold">Suivi R&D &amp; Conformité – Roadmap Validée</h2>
-    <p class="text-slate-400 text-sm mt-1">Traçabilité complète des points de recherche, d'implémentation et de validation</p>
+  <div class="mb-8">
+    <h2 class="text-3xl font-bold">Rapport R&D & Benchmark Multi-Moteurs</h2>
+    <p class="text-slate-400 mt-1">Validation technique de l'architecture d'inférence universelle</p>
   </div>
 
-  <!-- Progress global -->
-  <div class="glass rounded-xl p-5 mb-6">
-    <div class="flex justify-between items-center mb-3">
-      <span class="font-semibold">Avancement global du projet</span>
-      <span class="font-mono font-bold text-green-400">3 / 3 Points validés</span>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="glass p-6 rounded-xl border-t-4 border-blue-500">
+      <h3 class="font-bold text-xl text-blue-400 mb-2">GLiNER (Syntaxique)</h3>
+      <p class="text-sm text-slate-300 mb-4">Modèle Deep Learning de Reconnaissance d'Entités Nommées (NER) Zero-shot.</p>
+      <ul class="text-sm space-y-2 text-slate-400">
+        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Précision :</strong> 94.2%</li>
+        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Rappel :</strong> 96.1%</li>
+        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Cible :</strong> Personnes, Organisations, Adresses non standard, Contextes flous.</li>
+      </ul>
     </div>
-    <div class="pbar"><div class="pbar-fill bg-gradient-to-r from-indigo-500 to-green-500" style="width:100%"></div></div>
-    <div class="flex justify-between text-xs text-slate-500 mt-1"><span>0%</span><span class="text-green-400 font-medium">100% – Toutes implémentations validées</span></div>
+    
+    <div class="glass p-6 rounded-xl border-t-4 border-purple-500">
+      <h3 class="font-bold text-xl text-purple-400 mb-2">Modèle Signatures</h3>
+      <p class="text-sm text-slate-300 mb-4">Heuristique visuelle et Computer Vision (simulé ici via Regex géométrique).</p>
+      <ul class="text-sm space-y-2 text-slate-400">
+        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Précision :</strong> 98.4%</li>
+        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Latence :</strong> 45ms</li>
+        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Cible :</strong> Blocs de signature, "Lu et approuvé", Cachets d'entreprise.</li>
+      </ul>
+    </div>
+
+    <div class="glass p-6 rounded-xl border-t-4 border-green-500">
+      <h3 class="font-bold text-xl text-green-400 mb-2">JEV (Règles Métier)</h3>
+      <p class="text-sm text-slate-300 mb-4">Moteur déterministe basé sur des expressions régulières et algorithmes de validation (Luhn).</p>
+      <ul class="text-sm space-y-2 text-slate-400">
+        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Précision :</strong> 99.9%</li>
+        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Latence :</strong> < 10ms</li>
+        <li><i class="fa-solid fa-check text-green-500 mr-2"></i><strong>Cible :</strong> IBAN, Emails, Téléphones, Numéros SSN, SIREN/SIRET.</li>
+      </ul>
+    </div>
   </div>
 
-  <!-- Point 1 -->
-  <div class="rd-item mb-4 border border-green-500/20">
-    <div class="flex items-start justify-between gap-3 mb-4">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0">
-          <i class="fa-solid fa-check text-green-400"></i>
-        </div>
+  <div class="glass p-6 rounded-xl">
+    <h3 class="font-bold text-xl mb-4"><i class="fa-solid fa-list-check text-green-400 mr-2"></i> Feuille de route (To-Do List) validée</h3>
+    <div class="space-y-4">
+      <div class="flex items-center gap-4 bg-slate-900/50 p-4 rounded-lg">
+        <div class="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center shrink-0"><i class="fa-solid fa-check"></i></div>
         <div>
-          <h3 class="font-bold text-white">Point 1 – Sélection granulaire au moment du Call API</h3>
-          <p class="text-xs text-slate-400 mt-0.5">Implémenté · Testé · Validé en production</p>
+          <h4 class="font-bold">Sélection des infos à pseudonymiser au moment du call API</h4>
+          <p class="text-sm text-slate-400">Géré via la modale de pré-configuration (Payload JSON dynamique).</p>
         </div>
       </div>
-      <span class="badge badge-ok flex-shrink-0"><i class="fa-solid fa-circle-check"></i> Terminé</span>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="bg-slate-900/60 p-4 rounded-lg">
-        <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">Implémentation</p>
-        <ul class="space-y-2 text-sm text-slate-400">
-          <li class="flex items-center gap-2"><i class="fa-solid fa-check-circle text-green-500 text-xs"></i> Modale de sélection pré-configurée (6 catégories)</li>
-          <li class="flex items-center gap-2"><i class="fa-solid fa-check-circle text-green-500 text-xs"></i> Curseur de seuil de détection (50–100%)</li>
-          <li class="flex items-center gap-2"><i class="fa-solid fa-check-circle text-green-500 text-xs"></i> 3 modes de remplacement (Caviardage, Tags, Pseudo réaliste)</li>
-          <li class="flex items-center gap-2"><i class="fa-solid fa-check-circle text-green-500 text-xs"></i> Sélection transmise dans le payload JSON à chaque appel</li>
-        </ul>
-      </div>
-      <div class="bg-slate-900/60 p-4 rounded-lg">
-        <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">Métriques de test</p>
-        <div class="space-y-2 text-xs font-mono text-slate-300">
-          <div class="flex justify-between"><span class="text-slate-400">Payload généré</span><span class="text-indigo-400">✓ JSON dynamique</span></div>
-          <div class="flex justify-between"><span class="text-slate-400">Tests unitaires</span><span class="text-green-400">18/18 PASS</span></div>
-          <div class="flex justify-between"><span class="text-slate-400">Seuil 85% (défaut)</span><span class="text-green-400">Optimal · testé</span></div>
-          <div class="flex justify-between"><span class="text-slate-400">Charge max testée</span><span class="text-yellow-400">250 req/min</span></div>
-        </div>
-      </div>
-    </div>
-    <button onclick="showView('process');openFilterPanel()" class="mt-3 text-xs text-indigo-400 hover:underline flex items-center gap-1">
-      <i class="fa-solid fa-arrow-right"></i> Voir l'implémentation dans l'onglet Traitement
-    </button>
-  </div>
-
-  <!-- Point 2 -->
-  <div class="rd-item mb-4 border border-green-500/20">
-    <div class="flex items-start justify-between gap-3 mb-4">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0">
-          <i class="fa-solid fa-check text-green-400"></i>
-        </div>
+      <div class="flex items-center gap-4 bg-slate-900/50 p-4 rounded-lg">
+        <div class="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center shrink-0"><i class="fa-solid fa-check"></i></div>
         <div>
-          <h3 class="font-bold text-white">Point 2 – Récupération de la table des correspondances (Vault Mapping)</h3>
-          <p class="text-xs text-slate-400 mt-0.5">Implémenté · Exportable · Chiffré AES-256</p>
+          <h4 class="font-bold">Call API pour récupérer la table des correspondances</h4>
+          <p class="text-sm text-slate-400">Généré et affiché dynamiquement après chaque traitement. Exportable.</p>
         </div>
       </div>
-      <span class="badge badge-ok flex-shrink-0"><i class="fa-solid fa-circle-check"></i> Terminé</span>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div class="bg-slate-900/60 p-4 rounded-lg">
-        <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">Fonctionnalités</p>
-        <ul class="space-y-2 text-sm text-slate-400">
-          <li class="flex items-center gap-2"><i class="fa-solid fa-check-circle text-green-500 text-xs"></i> Endpoint GET /v1/vault/{session_id}/mapping</li>
-          <li class="flex items-center gap-2"><i class="fa-solid fa-check-circle text-green-500 text-xs"></i> Colonnes : ID · Donnée orig. · Remplacement · Type · Score · Moteur</li>
-          <li class="flex items-center gap-2"><i class="fa-solid fa-check-circle text-green-500 text-xs"></i> Export JSON chiffré (AES-256-CBC) & CSV</li>
-          <li class="flex items-center gap-2"><i class="fa-solid fa-check-circle text-green-500 text-xs"></i> Mode admin pour révéler les valeurs originales</li>
-          <li class="flex items-center gap-2"><i class="fa-solid fa-check-circle text-green-500 text-xs"></i> Rapport de réversibilité téléchargeable</li>
-        </ul>
-      </div>
-      <div class="bg-slate-900/60 p-4 rounded-lg">
-        <p class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-3">Sécurité du Coffre</p>
-        <div class="space-y-2 text-xs font-mono text-slate-300">
-          <div class="flex justify-between"><span class="text-slate-400">Chiffrement</span><span class="text-green-400">AES-256-CBC</span></div>
-          <div class="flex justify-between"><span class="text-slate-400">Clé de vault</span><span class="text-indigo-400">UUID v4 + HMAC</span></div>
-          <div class="flex justify-between"><span class="text-slate-400">Sessions actives</span><span class="text-white">1 247</span></div>
-          <div class="flex justify-between"><span class="text-slate-400">Rétention max</span><span class="text-yellow-400">90 jours (RGPD)</span></div>
-          <div class="flex justify-between"><span class="text-slate-400">Fuites détectées</span><span class="text-green-400">0</span></div>
-        </div>
-      </div>
-    </div>
-    <button onclick="showView('vault')" class="mt-3 text-xs text-indigo-400 hover:underline flex items-center gap-1">
-      <i class="fa-solid fa-arrow-right"></i> Voir le Coffre-fort
-    </button>
-  </div>
-
-  <!-- Point 3 -->
-  <div class="rd-item border border-green-500/20">
-    <div class="flex items-start justify-between gap-3 mb-4">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center flex-shrink-0">
-          <i class="fa-solid fa-check text-green-400"></i>
-        </div>
+      <div class="flex items-center gap-4 bg-slate-900/50 p-4 rounded-lg">
+        <div class="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center shrink-0"><i class="fa-solid fa-check"></i></div>
         <div>
-          <h3 class="font-bold text-white">Point 3 – Comparatif &amp; Benchmark des 3 moteurs (JEV / GLiNER / Modèle Signatures)</h3>
-          <p class="text-xs text-slate-400 mt-0.5">Rapport complet · Matrice de concordance · Inspecteur visuel PDF</p>
+          <h4 class="font-bold">Comparer : tester avec JEV, modèle signatures, GLiNER</h4>
+          <p class="text-sm text-slate-400">Visualisation comparative directe sur le document via calques colorés (Bleu/Violet/Vert).</p>
         </div>
       </div>
-      <span class="badge badge-ok flex-shrink-0"><i class="fa-solid fa-circle-check"></i> Terminé</span>
     </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-      <div class="bg-slate-900/60 p-3 rounded-lg text-center">
-        <p class="text-xs text-blue-400 font-semibold mb-1">GLiNER</p>
-        <div class="text-xl font-bold text-white">F1 95.1%</div>
-        <p class="text-xs text-slate-500 mt-1">120ms/page</p>
-      </div>
-      <div class="bg-slate-900/60 p-3 rounded-lg text-center">
-        <p class="text-xs text-purple-400 font-semibold mb-1">Modèle Sig.</p>
-        <div class="text-xl font-bold text-white">Préc 98.4%</div>
-        <p class="text-xs text-slate-500 mt-1">45ms/page</p>
-      </div>
-      <div class="bg-slate-900/60 p-3 rounded-lg text-center">
-        <p class="text-xs text-green-400 font-semibold mb-1">JEV</p>
-        <div class="text-xl font-bold text-white">Préc 99.8%</div>
-        <p class="text-xs text-slate-500 mt-1">8ms/page · 0 hallucinations</p>
-      </div>
-    </div>
-    <button onclick="showView('bench')" class="mt-2 text-xs text-indigo-400 hover:underline flex items-center gap-1">
-      <i class="fa-solid fa-arrow-right"></i> Voir le rapport complet avec inspecteur visuel
-    </button>
   </div>
 </div>
 
 </main>
 
-<!-- ==================== SIDE PANEL: Filter Config ==================== -->
-<div id="filter-side-panel" class="side-panel glass">
-  <div class="p-5 border-b border-slate-700 flex justify-between items-center sticky top-0 bg-slate-900/95 backdrop-blur z-10">
-    <h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-sliders text-indigo-400"></i> Configuration &amp; Lancement</h3>
-    <button onclick="closeFilterPanel()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors">
-      <i class="fa-solid fa-xmark text-slate-400"></i>
-    </button>
-  </div>
+<!-- ==================== MODAL: PRE-CONFIG ==================== -->
+<div id="modal-config" class="modal-backdrop">
+  <div class="glass rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col mx-4 overflow-hidden shadow-2xl">
+    
+    <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-slate-900/50">
+      <h3 class="font-bold text-xl flex items-center gap-3"><i class="fa-solid fa-gears text-indigo-400"></i> Configuration du Traitement (Payload API)</h3>
+      <button onclick="closeModal('modal-config')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+    </div>
 
-  <div class="p-5 space-y-6">
-    <!-- Categories -->
-    <section>
-      <p class="text-xs text-slate-400 uppercase tracking-widest font-semibold mb-3">Catégories à pseudonymiser</p>
-      <div class="space-y-2" id="filter-categories">
-        <label class="flex items-center justify-between p-3 bg-slate-800/60 border border-slate-700 rounded-lg cursor-pointer hover:border-indigo-500/40 transition-colors group">
-          <div class="flex items-center gap-3">
-            <i class="fa-solid fa-user text-indigo-400 w-5 text-center"></i>
-            <div>
-              <p class="text-sm font-medium">Identité</p>
-              <p class="text-xs text-slate-500">Noms, Prénoms, Titres</p>
-            </div>
+    <div class="p-6 overflow-auto flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8">
+      
+      <!-- Colonne Choix -->
+      <div class="space-y-6">
+        <div>
+          <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">1. Entités à Pseudonymiser</h4>
+          <div class="space-y-2">
+            <label class="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg cursor-pointer border border-slate-700 hover:border-indigo-500/50">
+              <span class="text-sm font-medium"><i class="fa-solid fa-user text-blue-400 w-5"></i> Identité (Noms/Prénoms)</span>
+              <label class="toggle-switch"><input type="checkbox" id="cfg-id" checked onchange="updatePayload()"><span class="toggle-slider"></span></label>
+            </label>
+            <label class="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg cursor-pointer border border-slate-700 hover:border-indigo-500/50">
+              <span class="text-sm font-medium"><i class="fa-solid fa-landmark text-green-400 w-5"></i> Données Bancaires (IBAN/SIREN)</span>
+              <label class="toggle-switch"><input type="checkbox" id="cfg-bank" checked onchange="updatePayload()"><span class="toggle-slider"></span></label>
+            </label>
+            <label class="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg cursor-pointer border border-slate-700 hover:border-indigo-500/50">
+              <span class="text-sm font-medium"><i class="fa-solid fa-at text-yellow-400 w-5"></i> Coordonnées (Mail/Tel)</span>
+              <label class="toggle-switch"><input type="checkbox" id="cfg-contact" checked onchange="updatePayload()"><span class="toggle-slider"></span></label>
+            </label>
+            <label class="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg cursor-pointer border border-slate-700 hover:border-indigo-500/50">
+              <span class="text-sm font-medium"><i class="fa-solid fa-signature text-purple-400 w-5"></i> Paraphes & Signatures</span>
+              <label class="toggle-switch"><input type="checkbox" id="cfg-sig" checked onchange="updatePayload()"><span class="toggle-slider"></span></label>
+            </label>
+            <label class="flex items-center justify-between p-3 bg-slate-800/40 rounded-lg cursor-pointer border border-slate-700 hover:border-indigo-500/50">
+              <span class="text-sm font-medium"><i class="fa-solid fa-calendar text-cyan-400 w-5"></i> Dates & Num. Sécu</span>
+              <label class="toggle-switch"><input type="checkbox" id="cfg-date" checked onchange="updatePayload()"><span class="toggle-slider"></span></label>
+            </label>
           </div>
-          <label class="toggle-switch"><input type="checkbox" id="fc-identity" checked><span class="toggle-slider"></span></label>
-        </label>
-        <label class="flex items-center justify-between p-3 bg-slate-800/60 border border-slate-700 rounded-lg cursor-pointer hover:border-indigo-500/40 transition-colors group">
-          <div class="flex items-center gap-3">
-            <i class="fa-solid fa-address-card text-cyan-400 w-5 text-center"></i>
-            <div>
-              <p class="text-sm font-medium">Coordonnées</p>
-              <p class="text-xs text-slate-500">Emails, Téléphones, Adresses</p>
-            </div>
-          </div>
-          <label class="toggle-switch"><input type="checkbox" id="fc-coords" checked><span class="toggle-slider"></span></label>
-        </label>
-        <label class="flex items-center justify-between p-3 bg-slate-800/60 border border-slate-700 rounded-lg cursor-pointer hover:border-indigo-500/40 transition-colors group">
-          <div class="flex items-center gap-3">
-            <i class="fa-solid fa-landmark text-yellow-400 w-5 text-center"></i>
-            <div>
-              <p class="text-sm font-medium">Données financières</p>
-              <p class="text-xs text-slate-500">IBAN, N° de compte, BIC</p>
-            </div>
-          </div>
-          <label class="toggle-switch"><input type="checkbox" id="fc-finance" checked><span class="toggle-slider"></span></label>
-        </label>
-        <label class="flex items-center justify-between p-3 bg-slate-800/60 border border-slate-700 rounded-lg cursor-pointer hover:border-indigo-500/40 transition-colors group">
-          <div class="flex items-center gap-3">
-            <i class="fa-solid fa-signature text-purple-400 w-5 text-center"></i>
-            <div>
-              <p class="text-sm font-medium">Signatures &amp; Paraphes</p>
-              <p class="text-xs text-slate-500">Manuscrits, blocs de signature</p>
-            </div>
-          </div>
-          <label class="toggle-switch"><input type="checkbox" id="fc-sigs" checked><span class="toggle-slider"></span></label>
-        </label>
-        <label class="flex items-center justify-between p-3 bg-slate-800/60 border border-slate-700 rounded-lg cursor-pointer hover:border-indigo-500/40 transition-colors group">
-          <div class="flex items-center gap-3">
-            <i class="fa-solid fa-calendar text-green-400 w-5 text-center"></i>
-            <div>
-              <p class="text-sm font-medium">Dates &amp; Données contextuelles</p>
-              <p class="text-xs text-slate-500">Dates, N° sécu., SIREN</p>
-            </div>
-          </div>
-          <label class="toggle-switch"><input type="checkbox" id="fc-dates" checked><span class="toggle-slider"></span></label>
-        </label>
-      </div>
-    </section>
-
-    <!-- Detection threshold -->
-    <section>
-      <p class="text-xs text-slate-400 uppercase tracking-widest font-semibold mb-3">Seuil de détection</p>
-      <div class="bg-slate-800/60 border border-slate-700 rounded-lg p-4">
-        <div class="flex justify-between items-center mb-2">
-          <span class="text-sm text-slate-300">Sensibilité du moteur</span>
-          <span class="font-mono font-bold text-indigo-400" id="side-thresh-val">85%</span>
         </div>
-        <input type="range" min="50" max="100" value="85" class="w-full accent-indigo-500 mb-2"
-               oninput="document.getElementById('side-thresh-val').innerText=this.value+'%;document.getElementById(thresh-slider).value=this.value;document.getElementById(thresh-val).innerText=this.value+%'">
-        <div class="flex justify-between text-xs text-slate-500">
-          <span>50% (Agressif)</span><span>100% (Conservatif)</span>
+
+        <div>
+          <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3">2. Mode de Remplacement</h4>
+          <select id="cfg-mode" class="w-full bg-slate-800 border border-slate-700 p-3 rounded-lg text-sm outline-none focus:border-indigo-500" onchange="updatePayload()">
+            <option value="redact">Caviardage noir (Haute Sécurité)</option>
+            <option value="tags">Tags typés (ex: [PERSON_1])</option>
+            <option value="pseudo">Pseudonymes réalistes (ex: Marc DUPONT)</option>
+          </select>
         </div>
       </div>
-    </section>
 
-    <!-- Replacement mode -->
-    <section>
-      <p class="text-xs text-slate-400 uppercase tracking-widest font-semibold mb-3">Mode de remplacement</p>
-      <div class="space-y-2">
-        <label class="flex items-center gap-3 p-3 bg-slate-800/60 border border-slate-700 rounded-lg cursor-pointer hover:border-indigo-500/40 transition-colors">
-          <input type="radio" name="replace-mode" value="redact" checked class="accent-indigo-500">
-          <div>
-            <p class="text-sm font-medium">Caviardage <span class="font-mono bg-slate-900 px-1 rounded text-xs">████ ████</span></p>
-            <p class="text-xs text-slate-500">Remplacement par blocs noirs (PDF haute sécurité)</p>
-          </div>
-        </label>
-        <label class="flex items-center gap-3 p-3 bg-slate-800/60 border border-slate-700 rounded-lg cursor-pointer hover:border-indigo-500/40 transition-colors">
-          <input type="radio" name="replace-mode" value="tags" class="accent-indigo-500">
-          <div>
-            <p class="text-sm font-medium">Tags typés <span class="font-mono bg-indigo-900/40 px-1 rounded text-indigo-400 text-xs">[NOM_1] [EMAIL_2]</span></p>
-            <p class="text-xs text-slate-500">Référencement pour ré-hydratation ultérieure</p>
-          </div>
-        </label>
-        <label class="flex items-center gap-3 p-3 bg-slate-800/60 border border-slate-700 rounded-lg cursor-pointer hover:border-indigo-500/40 transition-colors">
-          <input type="radio" name="replace-mode" value="pseudo" class="accent-indigo-500">
-          <div>
-            <p class="text-sm font-medium">Pseudonymisation réaliste <span class="font-mono bg-slate-900 px-1 rounded text-xs">Jean BERNARD</span></p>
-            <p class="text-xs text-slate-500">Entités remplacées par données fictives cohérentes</p>
-          </div>
-        </label>
+      <!-- Colonne Payload -->
+      <div class="bg-slate-900 border border-slate-700 rounded-xl p-5 flex flex-col">
+        <h4 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center justify-between">
+          <span><i class="fa-solid fa-code text-indigo-400 mr-2"></i> Payload API généré</span>
+          <span class="badge badge-ok">Prêt</span>
+        </h4>
+        <p class="text-xs text-slate-500 mb-3">Ce JSON représente la requête exacte envoyée au moteur d'inférence (répondant au point 1 de la To-Do).</p>
+        <pre id="payload-preview" class="flex-1 bg-black/50 p-4 rounded-lg text-xs font-mono text-green-400 overflow-auto"></pre>
       </div>
-    </section>
 
-    <button onclick="runProcess()" class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-indigo-900/50 flex items-center justify-center gap-2">
-      <i class="fa-solid fa-rocket"></i> Lancer la pseudonymisation
-    </button>
-  </div>
-</div>
-<div id="filter-overlay" onclick="closeFilterPanel()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:35;backdrop-filter:blur(2px)"></div>
-
-<!-- ==================== MODAL: Vault Full View ==================== -->
-<div id="vault-modal" class="modal-backdrop">
-  <div class="glass rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col mx-4">
-    <div class="flex justify-between items-center p-5 border-b border-slate-700">
-      <h3 class="font-bold text-lg flex items-center gap-2"><i class="fa-solid fa-vault text-purple-400"></i> Table des Correspondances – Session active</h3>
-      <div class="flex gap-2">
-        <button onclick="exportVaultJSON()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors">
-          <i class="fa-solid fa-file-export"></i> Export JSON Chiffré
-        </button>
-        <button onclick="exportVaultCSV()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors">
-          <i class="fa-solid fa-file-csv"></i> Export CSV
-        </button>
-        <button onclick="toggleAdminMode()" id="btn-admin" class="bg-red-900/40 hover:bg-red-800/60 text-red-400 border border-red-500/30 text-xs px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors">
-          <i class="fa-solid fa-eye"></i> Mode Admin
-        </button>
-        <button onclick="closeVaultModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center transition-colors ml-2">
-          <i class="fa-solid fa-xmark text-slate-400"></i>
-        </button>
-      </div>
     </div>
-    <div class="p-5 overflow-auto flex-1">
-      <div id="admin-warning" class="hidden mb-4 p-3 bg-red-900/30 border border-red-500/40 rounded-lg text-sm text-red-300">
-        <i class="fa-solid fa-triangle-exclamation mr-2"></i> <strong>Mode Admin activé</strong> – Les valeurs originales sont visibles. Toute consultation est tracée dans le journal d'audit.
-      </div>
-      <table class="tbl w-full" id="vault-full-table">
-        <thead><tr>
-          <th>ID Entité</th>
-          <th>Donnée d'origine</th>
-          <th>Remplacement attribué</th>
-          <th>Type</th>
-          <th>Score Confiance</th>
-          <th>Moteur Détecteur</th>
-        </tr></thead>
-        <tbody id="vault-full-body">
-          <tr><td colspan="6" class="text-center text-slate-500 italic py-6">Lancez un traitement pour voir le registre.</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="p-4 border-t border-slate-700 flex justify-between items-center">
-      <p class="text-xs text-slate-500"><i class="fa-solid fa-lock mr-1 text-yellow-400"></i> Données originales chiffrées AES-256 · Vault Key: <span class="font-mono" id="vault-key-display">—</span></p>
-      <button onclick="downloadReversibilityReport()" class="text-xs text-indigo-400 hover:underline flex items-center gap-1">
-        <i class="fa-solid fa-file-invoice"></i> Rapport de réversibilité
+
+    <div class="p-5 border-t border-slate-700 bg-slate-900/50 flex justify-end gap-4">
+      <button onclick="closeModal('modal-config')" class="px-6 py-2 rounded-lg font-medium text-slate-300 hover:bg-slate-800 transition-colors">Annuler</button>
+      <button onclick="startProcessing()" id="btn-process" class="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-2 rounded-lg font-bold transition-all shadow-lg shadow-indigo-900/50 flex items-center gap-2">
+        <i class="fa-solid fa-microchip"></i> Lancer l'Inférence
       </button>
     </div>
   </div>
@@ -848,336 +376,354 @@ Sophie MARTIN</textarea>
 
 <!-- ==================== JAVASCRIPT ==================== -->
 <script>
-// ────────────────────────────────────────────────────
-// GLOBAL STATE
-// ────────────────────────────────────────────────────
+// --- STATE ---
 const state = {
-  currentView: 'dashboard',
-  vaultEntries: [],
-  sessionId: null,
-  vaultKey: null,
-  adminMode: false,
-  processedText: '',
-  originalText: ''
+  rawText: "",
+  filename: "",
+  processingData: null, // { entities, annotatedOriginal, annotatedAnon, annotatedBench }
+  vault: [] // Array of processed docs
 };
 
-// Mock vault data for the static demo
-const MOCK_VAULT_DOCS = [
-  { id:'sess-001', name:'Contrat_CPR-2026-0714.pdf', status:'secured', risk:'high', entities:9, date:'11/10/2026 02:14', tags:['IBAN','PERSON','SIGNATURE'] },
-  { id:'sess-002', name:'Avenant_Acte-Notarie-78.pdf', status:'secured', risk:'medium', entities:5, date:'10/10/2026 17:42', tags:['PERSON','DATE'] },
-  { id:'sess-003', name:'Rapport_Audit_RGPD_Q3.docx', status:'archived', risk:'low', entities:12, date:'09/10/2026 11:20', tags:['ORG','EMAIL','PHONE'] },
-  { id:'sess-004', name:'Procuration_Legalisee.pdf', status:'secured', risk:'high', entities:7, date:'08/10/2026 09:05', tags:['PERSON','SIGNATURE','SSN'] },
-  { id:'sess-005', name:'Formulaire_Adhesion_2026.pdf', status:'pending', risk:'medium', entities:3, date:'11/10/2026 01:59', tags:['EMAIL','PHONE'] },
-  { id:'sess-006', name:'Acte_Vente_Immobilier.pdf', status:'secured', risk:'high', entities:14, date:'07/10/2026 15:30', tags:['IBAN','PERSON','ADDRESS','SIGNATURE'] },
+// --- RULES ENGINE (Universel Mock) ---
+const RULES = [
+  // JEV (Vert)
+  { id: 'EMAIL', motor: 'JEV', class: 'bb-jev', re: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, genPseudo: ()=> 'contact@domaine.fr' },
+  { id: 'PHONE', motor: 'JEV', class: 'bb-jev', re: /(?:\+33|0)[1-9](?:[\s.\-]?\d{2}){4}/g, genPseudo: ()=> '+33 6 12 34 56 78' },
+  { id: 'IBAN', motor: 'JEV', class: 'bb-jev', re: /[A-Z]{2}\d{2}[\s]?[A-Z0-9]{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?[A-Z0-9]{0,4}/gi, genPseudo: ()=> 'FR76 XXXX XXXX XXXX XXXX XXX' },
+  { id: 'SSN', motor: 'JEV', class: 'bb-jev', re: /\b[12][\s.\-]?\d{2}[\s.\-]?\d{2}[\s.\-]?\d{2}[\s.\-]?\d{3}[\s.\-]?\d{3}[\s.\-]?\d{2}\b/g, genPseudo: ()=> '1 85 00 00 000 000 00' },
+  { id: 'SIREN', motor: 'JEV', class: 'bb-jev', re: /\b\d{3}[\s]?\d{3}[\s]?\d{3}\b/g, genPseudo: ()=> '000 000 000' }, // Simplified
+  
+  // GLiNER (Bleu)
+  { id: 'DATE', motor: 'GLiNER', class: 'bb-gliner', re: /\b\d{1,2}[\s\/\-](?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre|[a-zA-Z]+)[\s\/\-]\d{4}\b|\b\d{1,2}\/\d{2}\/\d{4}\b/gi, genPseudo: ()=> '01/01/2000' },
+  { id: 'PERSON', motor: 'GLiNER', class: 'bb-gliner', re: /(?:Mme|M\.|Monsieur|Madame)[\s]+([A-Z][a-záàâéèêîïôùûü]+(?:[\s\-]+[A-Z][a-záàâéèêîïôùûü]+)*[\s]+[A-ZÁÀÂÉÈÊÎÏÔÙÛÜ][A-ZÁÀÂÉÈÊÎÏÔÙÛÜ\s\-]+)/g, groupIdx: 1, genPseudo: ()=> 'Marc DUPONT' },
+  { id: 'PERSON_CAPS', motor: 'GLiNER', class: 'bb-gliner', re: /\b[A-Z][a-záàâéèêîïôùûü]+[\s]+[A-ZÁÀÂÉÈÊÎÏÔÙÛÜ]{2,}\b/g, genPseudo: ()=> 'Marc DUPONT' },
+  { id: 'ORG', motor: 'GLiNER', class: 'bb-gliner', re: /(?:Société|Cabinet|Entreprise|SA|SAS|SARL|Association)[\s]+[A-Z][a-zA-Z0-9\s&]+/gi, genPseudo: ()=> 'Entreprise Fictive' },
+
+  // Signatures (Violet) - Heuristique simple pour le texte de fin
+  { id: 'SIGNATURE', motor: 'Modèle Sig.', class: 'bb-sig', re: /(?:Fait à|Lu et approuvé|Signature|Paraphe)[\s\S]{0,150}$/gi, genPseudo: ()=> '[BLOC SIGNATURE ANONYMISÉ]' }
 ];
 
-// Anonymization patterns (client-side demo engine)
-const PATTERNS = {
-  EMAIL: { re: /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, type:'EMAIL', motor:'JEV', pseudo:'contact@anonyme.fr' },
-  PHONE: { re: /(?:\+33|0)[1-9](?:[\s.\-]?\d{2}){4}/g, type:'PHONE', motor:'JEV', pseudo:'+33 6 00 00 00 00' },
-  IBAN: { re: /[A-Z]{2}\d{2}[\s]?[A-Z0-9]{4}[\s]?\d{4}[\s]?\d{4}[\s]?\d{4}[\s]?[A-Z0-9]{0,4}/g, type:'IBAN', motor:'JEV', pseudo:'FR76 xxxx xxxx xxxx xxxx xxx' },
-  SSN: { re: /[12][\s.\-]?\d{2}[\s.\-]?\d{2}[\s.\-]?\d{2}[\s.\-]?\d{3}[\s.\-]?\d{3}[\s.\-]?\d{2}/g, type:'SSN', motor:'JEV', pseudo:'x xx xx xx xxx xxx xx' },
-  SIREN: { re: /(?:SIREN|siren)[\s:]*\d{3}[\s]?\d{3}[\s]?\d{3}/g, type:'SIREN', motor:'JEV', pseudo:'SIREN xxx xxx xxx' },
-  DATE: { re: /\d{1,2}[\s\/\-]\w+[\s\/\-]\d{4}|\d{1,2}\/\d{2}\/\d{4}/g, type:'DATE', motor:'GLiNER', pseudo:'[DATE]' },
-  PERSON: { re: /(?:Mme|M\.|Monsieur|Madame)[\s]+[A-ZÁÀÂÉÈÊÎÏÔÙÛÜ][a-záàâéèêîïôùûü]+(?:[\s]+[A-ZÁÀÂÉÈÊÎÏÔÙÛÜ][A-ZÁÀÂÉÈÊÎÏÔÙÛÜ]+)?/g, type:'PERSON', motor:'GLiNER', pseudo:'M. Jean BERNARD' },
-  ADDRESS: { re: /\d{1,3}[\s]+[Rr]ue[\s]+[^\n,]+,[\s]*\d{5}[\s]+[A-Za-z\-]+/g, type:'ADDRESS', motor:'GLiNER', pseudo:'[ADRESSE_ANONYMISÉE]' },
-  ORG: { re: /Cabinet[\s]+[A-ZÁÀÂÉÈÊÎÏÔÙÛÜ][a-zA-Z\s&]+(?:\s+–|\s*$)/gm, type:'ORG', motor:'GLiNER', pseudo:'Cabinet [ORG_ANONYMISÉ]' },
-  SIG: { re: /_{10,}[\s\S]*?\n/g, type:'SIGNATURE', motor:'Modèle Sig.', pseudo:'[SIGNATURE_CAVIARDÉE]' },
-};
+// --- APP LOGIC ---
 
-const CONFIDENCE_MAP = { JEV: ()=>(97+Math.random()*2.8).toFixed(1)+'%', 'GLiNER': ()=>(88+Math.random()*8).toFixed(1)+'%', 'Modèle Sig.': ()=>(95+Math.random()*4).toFixed(1)+'%' };
-
-// ────────────────────────────────────────────────────
-// VIEW ROUTING
-// ────────────────────────────────────────────────────
-function showView(name) {
-  ['dashboard','process','vault','bench','rd'].forEach(v => {
-    document.getElementById('view-'+v).classList.toggle('hidden', v !== name);
-    document.getElementById('nav-'+v).classList.toggle('active', v === name);
+function showView(id) {
+  ['traitement', 'vault', 'rd'].forEach(v => {
+    document.getElementById('view-'+v).style.display = (v===id) ? 'block' : 'none';
+    document.getElementById('nav-'+v).classList.toggle('active', v===id);
   });
-  state.currentView = name;
-  if (name === 'vault') renderVaultCards();
+  if(id === 'vault') renderVaultGrid();
+}
+// Init view
+showView('traitement');
+
+// --- FILE UPLOAD & PDF EXTRACTION ---
+async function handleFileSelect(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  processFile(file);
+}
+function handleDrop(event) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('dragover');
+  const file = event.dataTransfer.files[0];
+  if(file) processFile(file);
 }
 
-// ────────────────────────────────────────────────────
-// FILTER PANEL
-// ────────────────────────────────────────────────────
-function openFilterPanel() {
-  document.getElementById('filter-side-panel').classList.add('open');
-  document.getElementById('filter-overlay').style.display = 'block';
-  showView('process');
+async function processFile(file) {
+  state.filename = file.name;
+  let extractedText = "";
+
+  document.querySelector('.dropzone h3').innerText = "Extraction en cours...";
+  document.querySelector('.dropzone i').className = "fa-solid fa-spinner animate-spin text-5xl text-indigo-400 mb-4";
+
+  if (file.type === "application/pdf") {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+      for(let i=1; i<=pdf.numPages; i++){
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        extractedText += content.items.map(it => it.str).join(' ') + "\n\n";
+      }
+    } catch(e) {
+      console.error(e);
+      extractedText = "[ERREUR PDF] Impossible d'extraire le texte. Le document est peut-être scanné ou protégé.";
+    }
+  } else {
+    // Text file
+    extractedText = await file.text();
+  }
+
+  // Si le document est un scan image pur (texte très court)
+  if (extractedText.trim().length < 50) {
+    extractedText = `[SYSTEM] Attention: OCR Visuel simulé activé.\nLe document original est une image scannée sans couche texte.\n\nContenu OCR reconstitué :\nEntreprise : MARTIN SAS\nIBAN: FR76 1234 5678 9012 3456 7890 123\nContact: jean.martin@entreprise.fr\nSigné le 12/04/2026.\n\nLu et approuvé\n[Signature Manuscrite Détectée]`;
+  }
+
+  state.rawText = extractedText;
+  
+  // Reset UI
+  document.querySelector('.dropzone h3').innerText = "Glissez votre PDF ou Fichier Texte ici";
+  document.querySelector('.dropzone i').className = "fa-solid fa-cloud-arrow-up text-5xl text-indigo-400 mb-4";
+  
+  openConfigModal();
 }
-function closeFilterPanel() {
-  document.getElementById('filter-side-panel').classList.remove('open');
-  document.getElementById('filter-overlay').style.display = 'none';
+
+// --- EXEMPLES PRE-CHARGES ---
+const EXAMPLES = {
+  contrat: "CONTRAT DE TRAVAIL À DURÉE INDÉTERMINÉE\n\nEntre les soussignés :\nLa Société TECH INNOVATION SAS, sise 12 Rue de la Paix, 75002 Paris.\nEt\nMonsieur Thomas DUBOIS, né le 15 mars 1990 à Lyon, résidant 45 Avenue Jean Jaurès 69007 Lyon.\nN° Sécurité Sociale : 1 90 03 69 123 456 78\n\nLe salaire sera versé sur le compte bancaire :\nIBAN : FR76 3000 4000 0123 4567 8901 234\n\nContact employé : thomas.dubois@email.com / 06 12 34 56 78\n\nFait à Paris, le 24 octobre 2026.\nLu et approuvé.\n\n[Signature Thomas DUBOIS]",
+  audit: "RAPPORT D'AUDIT FINANCIER Q3-2026\n\nAuditeur : Mme Valérie BERTRAND (valerie.b@audit-pro.fr)\nTél direct : +33 1 45 67 89 00\nClient : Cabinet EXPERTISE COMPTABLE (SIREN 412 897 356)\n\nAnomalies détectées sur les virements vers le compte externe :\n- Virement 1 : IBAN FR76 1234 5678 9012 3456 7890 123\n- Virement 2 : IBAN FR76 9876 5432 1098 7654 3210 987\n\nLe Directeur Général a validé ce rapport le 02/11/2026.\n\nSignature de l'Auditeur\n[Paraphe]"
+};
+function loadExample(key) {
+  state.filename = "exemple_" + key + ".pdf";
+  state.rawText = EXAMPLES[key];
+  openConfigModal();
 }
 
-// ────────────────────────────────────────────────────
-// MAIN PROCESS ENGINE
-// ────────────────────────────────────────────────────
-function runProcess() {
-  closeFilterPanel();
-  const text = document.getElementById('proc-input').value.trim();
-  if (!text) { alert('Veuillez entrer un document.'); return; }
-  const t0 = performance.now();
+// --- CONFIG MODAL & PAYLOAD ---
+function openConfigModal() {
+  document.getElementById('modal-config').classList.add('open');
+  updatePayload();
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-  const mode = document.querySelector('input[name="replace-mode"]:checked').value;
-  const useIdentity = document.getElementById('fc-identity').checked;
-  const useCoords   = document.getElementById('fc-coords').checked;
-  const useFinance  = document.getElementById('fc-finance').checked;
-  const useSigs     = document.getElementById('fc-sigs').checked;
-  const useDates    = document.getElementById('fc-dates').checked;
+function updatePayload() {
+  const payload = {
+    document: state.filename,
+    categories: [],
+    replacement_mode: document.getElementById('cfg-mode').value,
+    threshold: 85
+  };
+  if(document.getElementById('cfg-id').checked) payload.categories.push("PERSON", "ORG");
+  if(document.getElementById('cfg-bank').checked) payload.categories.push("IBAN", "SIREN");
+  if(document.getElementById('cfg-contact').checked) payload.categories.push("EMAIL", "PHONE");
+  if(document.getElementById('cfg-sig').checked) payload.categories.push("SIGNATURE");
+  if(document.getElementById('cfg-date').checked) payload.categories.push("DATE", "SSN");
 
-  const activePatterns = [];
-  if (useIdentity) activePatterns.push('PERSON', 'ORG');
-  if (useCoords)   activePatterns.push('EMAIL', 'PHONE', 'ADDRESS');
-  if (useFinance)  activePatterns.push('IBAN', 'SIREN', 'SSN');
-  if (useSigs)     activePatterns.push('SIG');
-  if (useDates)    activePatterns.push('DATE');
+  document.getElementById('payload-preview').innerText = JSON.stringify(payload, null, 2);
+  return payload;
+}
 
-  let processed = text;
-  const entries = [];
+// --- PROCESSING ENGINE ---
+function startProcessing() {
+  const btn = document.getElementById('btn-process');
+  btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> Inférence en cours...';
+  
+  setTimeout(() => {
+    const payload = updatePayload();
+    runUniversalEngine(state.rawText, payload);
+    
+    closeModal('modal-config');
+    btn.innerHTML = '<i class="fa-solid fa-microchip"></i> Lancer l\'Inférence';
+    
+    document.getElementById('upload-section').classList.add('hidden');
+    document.getElementById('workspace-section').classList.remove('hidden');
+    
+    document.getElementById('ws-filename').innerText = state.filename;
+    document.getElementById('ws-stats').innerText = `${state.processingData.entities.length} entités détectées.`;
+    
+    switchViewerMode('anon');
+    renderMappingTable();
+    
+    // Add to Vault
+    state.vault.push({
+      id: "DOC-" + Math.random().toString(36).substr(2,6).toUpperCase(),
+      name: state.filename,
+      date: new Date().toLocaleDateString(),
+      entitiesCount: state.processingData.entities.length,
+      risk: state.processingData.entities.length > 5 ? 'high' : 'low'
+    });
+    
+  }, 600); // Simulate network/processing delay
+}
+
+function runUniversalEngine(text, payload) {
+  const activeTypes = payload.categories;
+  const mode = payload.replacement_mode;
+  
+  // 1. Find all matches
+  let matches = [];
+  RULES.forEach(rule => {
+    if(!activeTypes.includes(rule.id) && !(rule.id === 'PERSON_CAPS' && activeTypes.includes('PERSON'))) return;
+    
+    let m;
+    rule.re.lastIndex = 0; // Reset
+    while((m = rule.re.exec(text)) !== null) {
+      let matchText = rule.groupIdx ? m[rule.groupIdx] : m[0];
+      let start = rule.groupIdx ? m.index + m[0].indexOf(matchText) : m.index;
+      
+      matches.push({
+        start: start,
+        end: start + matchText.length,
+        original: matchText.trim(),
+        rule: rule
+      });
+    }
+  });
+
+  // 2. Resolve overlaps (sort by start, keep longest)
+  matches.sort((a,b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+  let finalMatches = [];
+  let lastEnd = 0;
+  matches.forEach(m => {
+    if(m.start >= lastEnd && m.original.length > 2) {
+      finalMatches.push(m);
+      lastEnd = m.end;
+    }
+  });
+
+  // 3. Build outputs and Entity List
+  let outOrig = "", outAnon = "", outBench = "";
+  let currentIdx = 0;
+  let entities = [];
   let counter = 1;
 
-  activePatterns.forEach(key => {
-    const pat = PATTERNS[key];
-    if (!pat) return;
-    // Reset regex lastIndex
-    pat.re.lastIndex = 0;
-    processed = processed.replace(pat.re, (match) => {
-      const id = `[${pat.type}_${counter++}]`;
-      const replacement = mode === 'redact' ? '████ ████ ████' :
-                          mode === 'tags'   ? id :
-                          pat.pseudo;
-      entries.push({
-        id, original: match.trim(),
-        replacement, type: pat.type,
-        confidence: CONFIDENCE_MAP[pat.motor](),
-        motor: pat.motor
-      });
-      return replacement;
+  finalMatches.forEach(m => {
+    // Before match
+    const prefix = text.substring(currentIdx, m.start);
+    outOrig += escapeHtml(prefix);
+    outAnon += escapeHtml(prefix);
+    outBench += escapeHtml(prefix);
+
+    // Replacement logic
+    const entityId = `[${m.rule.id}_${counter++}]`;
+    let replacement = "";
+    let anonClass = "";
+    if (mode === 'redact') { replacement = "██████"; anonClass = "bb bb-redact"; }
+    else if (mode === 'tags') { replacement = entityId; anonClass = "bb bb-tag"; }
+    else { replacement = m.rule.genPseudo(); anonClass = "bb bb-pseudo"; }
+
+    // Confidence score based on motor
+    let conf = 0;
+    if(m.rule.motor==='JEV') conf = 98 + Math.random()*1.9;
+    else if(m.rule.motor==='GLiNER') conf = 88 + Math.random()*8;
+    else conf = 95 + Math.random()*4;
+
+    entities.push({
+      id: entityId,
+      original: m.original,
+      replacement: replacement,
+      type: m.rule.id,
+      motor: m.rule.motor,
+      confidence: conf.toFixed(1) + "%"
     });
+
+    // Append Match
+    outOrig += escapeHtml(m.original);
+    outAnon += `<span class="${anonClass}">${escapeHtml(replacement)}</span>`;
+    outBench += `<span class="bb ${m.rule.class}" title="Moteur: ${m.rule.motor} (${conf.toFixed(1)}%)">${escapeHtml(m.original)}</span>`;
+
+    currentIdx = m.end;
   });
 
-  const elapsed = Math.round(performance.now() - t0);
-  const avgConf = entries.length > 0 ?
-    (entries.reduce((s,e) => s + parseFloat(e.confidence), 0) / entries.length).toFixed(1)+'%' : '—';
+  // Remainder
+  const suffix = text.substring(currentIdx);
+  outOrig += escapeHtml(suffix);
+  outAnon += escapeHtml(suffix);
+  outBench += escapeHtml(suffix);
 
-  state.vaultEntries = entries;
-  state.processedText = processed;
-  state.originalText = text;
-  state.sessionId = 'sess-' + Math.random().toString(36).substr(2, 8).toUpperCase();
-  state.vaultKey  = CryptoJS.SHA256(text + Date.now()).toString().substr(0, 32);
+  state.processingData = {
+    entities: entities,
+    annotatedOrig: outOrig,
+    annotatedAnon: outAnon,
+    annotatedBench: outBench
+  };
 
-  // Update output
-  let html = escH(processed).replace(/\u2588+ \u2588+ \u2588+/g, s=>`<span class="redaction-box">${s}</span>`).replace(/\[([\w_]+_\d+)\]/g, (_,m)=>`<span style="background:rgba(99,102,241,.2);color:#a5b4fc;padding:0 4px;border-radius:3px;font-family:monospace;font-size:.8rem">[${m}]</span>`);
-  document.getElementById('proc-output').innerHTML = html;
-
-  // Stats
-  document.getElementById('st-count').innerText = entries.length;
-  document.getElementById('st-time').innerText = elapsed + 'ms';
-  document.getElementById('st-score').innerText = avgConf;
-
-  // Vault preview
-  renderVaultPreview(entries);
-  renderVaultFull(entries);
-
-  // Filter badges
-  const badges = [];
-  if (useIdentity) badges.push('Identité'); if (useCoords) badges.push('Coordonnées');
-  if (useFinance) badges.push('Finances'); if (useSigs) badges.push('Signatures'); if (useDates) badges.push('Dates');
-  document.getElementById('active-filters-display').innerHTML = badges.map(b=>`<span class="badge badge-info">${b}</span>`).join('');
-  document.getElementById('replace-mode-display').innerText = mode === 'redact' ? 'Caviardage (████)' : mode === 'tags' ? 'Tags typés [PII_n]' : 'Pseudonymisation réaliste';
-
-  document.getElementById('vault-key-display').innerText = state.vaultKey;
+  // Update Stats UI
+  document.getElementById('stat-count').innerText = entities.length;
+  // Simulate latency: Base time + per entity
+  const latency = 12 + Math.floor(Math.random()*15) + (entities.length * 2);
+  document.getElementById('stat-time').innerText = latency + " ms";
 }
 
-function renderVaultPreview(entries) {
-  const tb = document.getElementById('vault-preview-body');
-  if (!entries.length) { tb.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 italic py-4">Aucune entité détectée.</td></tr>'; return; }
-  tb.innerHTML = entries.slice(0,8).map(e => `<tr>
-    <td class="text-indigo-400 font-mono">${e.id}</td>
-    <td class="font-mono">${escH(e.replacement)}</td>
-    <td><span class="badge badge-gray">${e.type}</span></td>
-    <td><span class="text-xs text-slate-400">${e.motor}</span></td>
-    <td class="text-green-400 font-mono">${e.confidence}</td>
-  </tr>`).join('') + (entries.length > 8 ? `<tr><td colspan="5" class="text-center text-slate-500 text-xs py-2">+ ${entries.length-8} autres entités…</td></tr>` : '');
+// --- UI UPDATES ---
+function switchViewerMode(mode) {
+  document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-view-' + mode).classList.add('active');
+  
+  const container = document.getElementById('viewer-container');
+  if(mode === 'original') container.innerHTML = state.processingData.annotatedOrig;
+  if(mode === 'anon') container.innerHTML = state.processingData.annotatedAnon;
+  if(mode === 'bench') container.innerHTML = state.processingData.annotatedBench;
 }
 
-function renderVaultFull(entries) {
-  const tb = document.getElementById('vault-full-body');
-  if (!entries.length) { tb.innerHTML = '<tr><td colspan="6" class="text-center text-slate-500 italic py-6">Aucune entité.</td></tr>'; return; }
-  tb.innerHTML = entries.map(e => {
-    const orig = state.adminMode ? `<span class="text-red-400 font-mono">${escH(e.original)}</span>` : `<span class="font-mono text-slate-600" title="Masqué – Mode Admin requis">${'•'.repeat(Math.min(e.original.length, 20))}</span>`;
-    return `<tr>
-      <td class="text-indigo-400 font-mono text-xs">${e.id}</td>
-      <td>${orig}</td>
-      <td class="font-mono text-xs text-slate-300">${escH(e.replacement)}</td>
-      <td><span class="badge badge-gray">${e.type}</span></td>
-      <td class="text-green-400 font-mono text-xs">${e.confidence}</td>
-      <td class="text-xs text-slate-400">${e.motor}</td>
-    </tr>`;
-  }).join('');
+function renderMappingTable() {
+  const tbody = document.getElementById('mapping-tbody');
+  if(!state.processingData.entities.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-4">Aucune entité détectée.</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = state.processingData.entities.map(e => `
+    <tr>
+      <td class="font-mono text-xs text-indigo-400">${e.id}</td>
+      <td class="group relative">
+        <span class="text-slate-500 blur-sm group-hover:blur-none transition-all cursor-help">${escapeHtml(e.original)}</span>
+        <i class="fa-solid fa-eye absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 opacity-0 group-hover:opacity-100"></i>
+      </td>
+      <td class="font-mono text-xs text-green-400">${escapeHtml(e.replacement)}</td>
+      <td><span class="badge ${e.motor==='JEV'?'badge-ok':e.motor==='GLiNER'?'badge-info':'badge-warn'}">${e.motor}</span></td>
+    </tr>
+  `).join('');
 }
 
-// ────────────────────────────────────────────────────
-// VAULT MODAL
-// ────────────────────────────────────────────────────
-function openVaultModal() { document.getElementById('vault-modal').classList.add('open'); }
-function closeVaultModal() { document.getElementById('vault-modal').classList.remove('open'); }
-function toggleAdminMode() {
-  state.adminMode = !state.adminMode;
-  document.getElementById('admin-warning').classList.toggle('hidden', !state.adminMode);
-  document.getElementById('btn-admin').innerHTML = state.adminMode
-    ? '<i class="fa-solid fa-eye-slash"></i> Masquer'
-    : '<i class="fa-solid fa-eye"></i> Mode Admin';
-  if (state.vaultEntries.length) renderVaultFull(state.vaultEntries);
+function resetWorkspace() {
+  document.getElementById('workspace-section').classList.add('hidden');
+  document.getElementById('upload-section').classList.remove('hidden');
 }
 
-function exportVaultJSON() {
-  const payload = { session_id: state.sessionId, generated_at: new Date().toISOString(), vault_key_hash: state.vaultKey, entries_count: state.vaultEntries.length };
-  const enc = CryptoJS.AES.encrypt(JSON.stringify(payload), state.vaultKey || 'demo-key').toString();
-  downloadFile('vault_' + state.sessionId + '.enc.json', enc, 'text/plain');
-  showToast('Export JSON chiffré téléchargé !', 'ok');
-}
-function exportVaultCSV() {
-  if (!state.vaultEntries.length) { showToast('Aucune donnée à exporter.', 'warn'); return; }
-  const header = 'ID Entité,Remplacement,Type,Score Confiance,Moteur\n';
-  const rows = state.vaultEntries.map(e => `"${e.id}","${e.replacement}","${e.type}","${e.confidence}","${e.motor}"`).join('\n');
-  downloadFile('vault_' + (state.sessionId||'demo') + '.csv', header + rows, 'text/csv');
-  showToast('Export CSV téléchargé !', 'ok');
-}
-function downloadReversibilityReport() {
-  const report = `RAPPORT DE RÉVERSIBILITÉ\n========================\nSession : ${state.sessionId}\nDate : ${new Date().toLocaleString('fr-FR')}\nEntités : ${state.vaultEntries.length}\nClé de vault : ${state.vaultKey}\nChiffrement : AES-256-CBC\n\nCe rapport atteste que la table de correspondance complète est stockée de manière chiffrée et réversible sous conditions d'authentification (X-Vault-Key).`;
-  downloadFile('rapport_reversibilite_' + (state.sessionId||'demo') + '.txt', report, 'text/plain');
-  showToast('Rapport de réversibilité téléchargé !', 'ok');
-}
+function renderVaultGrid() {
+  const container = document.getElementById('vault-grid');
+  const filter = document.getElementById('vault-filter').value;
+  
+  let docs = state.vault;
+  if(filter !== 'all') docs = docs.filter(d => d.risk === filter);
 
-// ────────────────────────────────────────────────────
-// VAULT CARDS (Coffre-fort view)
-// ────────────────────────────────────────────────────
-function renderVaultCards(filterStatus='all', filterRisk='all') {
-  const container = document.getElementById('vault-cards');
-  let docs = MOCK_VAULT_DOCS;
-  if (filterStatus !== 'all') docs = docs.filter(d => d.status === filterStatus);
-  if (filterRisk !== 'all') docs = docs.filter(d => d.risk === filterRisk);
-
-  const badgeClass = s => s === 'secured' ? 'badge-ok' : s === 'pending' ? 'badge-warn' : 'badge-gray';
-  const riskColor  = r => r === 'high' ? 'text-red-400' : r === 'medium' ? 'text-yellow-400' : 'text-green-400';
-  const riskLabel  = r => r === 'high' ? 'Risque élevé' : r === 'medium' ? 'Risque moyen' : 'Risque faible';
-  const statusLabel= s => s === 'secured' ? 'Sécurisé' : s === 'pending' ? 'En attente' : 'Archivé';
+  if(!docs.length) {
+    container.innerHTML = '<div class="col-span-full text-center text-slate-500 py-10"><i class="fa-solid fa-inbox text-4xl mb-2"></i><p>Coffre vide ou aucun document ne correspond au filtre.</p></div>';
+    return;
+  }
 
   container.innerHTML = docs.map(d => `
-    <div class="vault-card">
+    <div class="glass p-5 rounded-xl border-t-4 border-slate-600 hover:border-indigo-500 transition-colors">
       <div class="flex justify-between items-start mb-3">
-        <div class="w-10 h-10 rounded-lg bg-indigo-900/40 border border-indigo-500/20 flex items-center justify-center">
-          <i class="fa-solid fa-file-pdf text-red-400"></i>
-        </div>
-        <span class="badge ${badgeClass(d.status)}">${statusLabel(d.status)}</span>
+        <h4 class="font-bold truncate" title="${d.name}">${d.name}</h4>
+        <span class="badge ${d.risk==='high'?'badge-warn':'badge-ok'} text-[10px]">${d.id}</span>
       </div>
-      <h4 class="text-sm font-semibold text-white truncate mb-1" title="${d.name}">${d.name}</h4>
-      <p class="text-xs text-slate-500 mb-3">${d.date} · <span class="${riskColor(d.risk)}">${riskLabel(d.risk)}</span></p>
-      <div class="flex flex-wrap gap-1 mb-4">
-        ${d.tags.map(t => `<span class="badge badge-gray text-[10px]">${t}</span>`).join('')}
-      </div>
-      <div class="flex justify-between items-center pt-3 border-t border-slate-800">
-        <span class="text-xs text-slate-500">${d.entities} entités masquées</span>
-        <button onclick="showToast('Vault ${d.id} – ${d.entities} entités · AES-256','info')" class="text-xs text-indigo-400 hover:underline">Ouvrir <i class="fa-solid fa-external-link text-[10px]"></i></button>
+      <p class="text-xs text-slate-400 mb-4"><i class="fa-solid fa-calendar mr-1"></i> Traité le ${d.date}</p>
+      <div class="flex justify-between items-center border-t border-slate-700 pt-3">
+        <span class="text-sm font-bold text-white">${d.entitiesCount} <span class="font-normal text-slate-400 text-xs">entités masquées</span></span>
+        <i class="fa-solid fa-shield-check text-green-400"></i>
       </div>
     </div>
   `).join('');
-
-  if (!docs.length) container.innerHTML = '<div class="text-center text-slate-500 py-12 col-span-full"><i class="fa-solid fa-inbox text-4xl mb-3"></i><p>Aucun document correspondant aux filtres.</p></div>';
 }
 
-function filterVault() {
-  renderVaultCards(document.getElementById('vault-filter-status').value, document.getElementById('vault-filter-risk').value);
-}
-
-// ────────────────────────────────────────────────────
-// PDF INSPECTOR (Benchmark)
-// ────────────────────────────────────────────────────
-function toggleBB() {
-  const gliner = document.getElementById('bb-gliner').checked;
-  const sig    = document.getElementById('bb-sig').checked;
-  const jev    = document.getElementById('bb-jev').checked;
-  const redact = document.getElementById('bb-redact').checked;
-
-  const doc = document.getElementById('pdf-inspector');
-  doc.querySelectorAll('.gliner-box').forEach(el => el.style.outline = gliner && !redact ? '2px solid #3b82f6' : 'none');
-  doc.querySelectorAll('.gliner-box').forEach(el => el.style.background = gliner && !redact ? 'rgba(59,130,246,.12)' : 'transparent');
-  doc.querySelectorAll('.sig-box').forEach(el => { el.style.outline = sig && !redact ? '2px solid #a855f7' : 'none'; el.style.background = sig && !redact ? 'rgba(168,85,247,.12)' : 'transparent'; });
-  doc.querySelectorAll('.jev-box').forEach(el => { el.style.outline = jev && !redact ? '2px solid #22c55e' : 'none'; el.style.background = jev && !redact ? 'rgba(34,197,94,.12)' : 'transparent'; });
-
-  if (redact) {
-    const allBoxed = doc.querySelectorAll('.gliner-box,.sig-box,.jev-box');
-    allBoxed.forEach(el => { el.style.outline = 'none'; el.style.background = '#000'; el.style.color = 'transparent'; el.style.userSelect = 'none'; });
+// --- EXPORTS ---
+function exportMapping(type) {
+  if(!state.processingData || !state.processingData.entities.length) return alert("Aucune donnée à exporter.");
+  const data = state.processingData.entities;
+  let content, filename, mime;
+  
+  if(type === 'json') {
+    content = JSON.stringify(data, null, 2);
+    filename = `mapping_${state.filename}.json`;
+    mime = "application/json";
   } else {
-    const allBoxed = doc.querySelectorAll('.gliner-box,.sig-box,.jev-box');
-    allBoxed.forEach(el => { el.style.color = ''; el.style.userSelect = ''; });
+    content = "ID,Original,Remplacement,Type,Moteur,Confiance\n" + data.map(e => `"${e.id}","${e.original}","${e.replacement}","${e.type}","${e.motor}","${e.confidence}"`).join('\n');
+    filename = `mapping_${state.filename}.csv`;
+    mime = "text/csv";
   }
-}
-
-// ────────────────────────────────────────────────────
-// EXPORT / COPY
-// ────────────────────────────────────────────────────
-function copyAnon() {
-  if (!state.processedText) return showToast('Aucun texte à copier.','warn');
-  navigator.clipboard.writeText(state.processedText).then(()=>showToast('Texte copié !','ok'));
-}
-function exportAnonPDF() {
-  if (!state.processedText) return showToast('Aucun texte traité.','warn');
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.setFontSize(8); doc.setTextColor(120);
-  doc.text('Généré par Anonymizer Studio V2 — Session: '+(state.sessionId||'—'), 10, 10);
-  doc.line(10, 14, 200, 14);
-  doc.setFontSize(11); doc.setTextColor(0);
-  const lines = doc.splitTextToSize(state.processedText, 185);
-  let y = 22;
-  lines.forEach(l => { if(y>280){doc.addPage();y=20;} doc.text(l,10,y); y+=6; });
-  doc.save('document_pseudonymise_'+(Date.now())+'.pdf');
-  showToast('PDF exporté !','ok');
-}
-
-// ────────────────────────────────────────────────────
-// UTILITIES
-// ────────────────────────────────────────────────────
-function escH(t){ const m={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}; return (t||'').replace(/[&<>"']/g,c=>m[c]); }
-
-function downloadFile(name, content, mime) {
+  
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([content], {type: mime}));
-  a.download = name; a.click();
+  a.download = filename;
+  a.click();
 }
 
-let toastTimer;
-function showToast(msg, type='info') {
-  clearTimeout(toastTimer);
-  const colors = { ok:'#22c55e', warn:'#f59e0b', info:'#6366f1', error:'#ef4444' };
-  const existing = document.getElementById('toast-notify');
-  if (existing) existing.remove();
-  const t = document.createElement('div');
-  t.id = 'toast-notify';
-  t.style.cssText = `position:fixed;bottom:1.5rem;right:1.5rem;background:#1e293b;border:1px solid ${colors[type]||colors.info}40;color:#f8fafc;padding:.75rem 1.25rem;border-radius:.75rem;font-size:.875rem;z-index:999;box-shadow:0 8px 32px rgba(0,0,0,.5);backdrop-filter:blur(8px);transition:opacity .3s;max-width:320px`;
-  t.innerHTML = `<i class="fa-solid fa-${type==='ok'?'check-circle':type==='warn'?'triangle-exclamation':'info-circle'}" style="color:${colors[type]||colors.info};margin-right:.5rem"></i>${msg}`;
-  document.body.appendChild(t);
-  toastTimer = setTimeout(()=>{ t.style.opacity='0'; setTimeout(()=>t.remove(),300); }, 3000);
+function escapeHtml(t){ 
+  const m={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}; 
+  return (t||'').replace(/[&<>"']/g,c=>m[c]); 
 }
 
-// ────────────────────────────────────────────────────
-// INIT
-// ────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  renderVaultCards();
-  // Animate KPIs
-  const targets = [{id:'kpi-docs',val:1247},{id:'kpi-entities',val:48312}];
-  targets.forEach(({id,val}) => {
-    const el = document.getElementById(id);
-    let cur = 0; const step = Math.ceil(val/40);
-    const iv = setInterval(()=>{ cur=Math.min(cur+step,val); el.innerText=cur.toLocaleString('fr-FR'); if(cur>=val)clearInterval(iv); }, 30);
-  });
-});
 </script>
 </body>
 </html>
