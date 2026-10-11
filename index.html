@@ -280,34 +280,6 @@
           </div>
         </div>
 
-        <!-- Cartes explicatives des 3 moteurs -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-          <div class="glass p-4 rounded-xl border-l-4 border-green-500">
-            <div class="flex items-center gap-1.5 text-green-400 font-bold text-xs uppercase mb-1">
-              <i class="fa-solid fa-bolt"></i> JEV (Moteur Déterministe)
-            </div>
-            <p class="text-[11px] text-slate-400 leading-normal">
-              Validation par algorithmes rigides et sommes de contrôle (ISO 7064 Modulo 97 pour IBAN, Luhn pour SIREN/SIRET, Modulo 97 pour NIR). Zéro hallucination.
-            </p>
-          </div>
-          <div class="glass p-4 rounded-xl border-l-4 border-blue-500">
-            <div class="flex items-center gap-1.5 text-blue-400 font-bold text-xs uppercase mb-1">
-              <i class="fa-solid fa-brain"></i> GLiNER (Moteur Heuristique NER)
-            </div>
-            <p class="text-[11px] text-slate-400 leading-normal">
-              Analyse syntaxique & contextuelle des entités lexicales (personnes, contextes relationnels, organisations, adresses).
-            </p>
-          </div>
-          <div class="glass p-4 rounded-xl border-l-4 border-purple-500">
-            <div class="flex items-center gap-1.5 text-purple-400 font-bold text-xs uppercase mb-1">
-              <i class="fa-solid fa-draw-polygon"></i> Vision (Signatures & Paraphes)
-            </div>
-            <p class="text-[11px] text-slate-400 leading-normal">
-              Détection des zones candidates de signature manuscrite et paraphes par repérage structurel des formules de clôture d'actes.
-            </p>
-          </div>
-        </div>
-
       </div>
 
       <!-- WORKSPACE DU DOCUMENT EN COURS (CACHÉ AU DÉPART) -->
@@ -859,16 +831,22 @@
             <div class="glass p-2.5 rounded-xl border border-purple-500/30 flex items-center justify-between flex-wrap gap-2.5">
               <div class="flex items-center gap-2 flex-wrap text-xs">
                 <span class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
-                  <i class="fa-solid fa-crosshairs text-purple-400"></i> Curseur Document :
+                  <i class="fa-solid fa-shapes text-purple-400"></i> Outils :
                 </span>
                 <button id="test-tool-btn-draw" onclick="setVisionLabTool('draw')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-purple-600 text-white shadow flex items-center gap-1.5" title="Tracer un nouveau bloc avec le curseur (+)">
-                  <i class="fa-solid fa-plus font-black"></i> Tracer un bloc (+)
+                  <i class="fa-solid fa-plus font-black"></i> Tracer (+)
                 </button>
                 <button id="test-tool-btn-select" onclick="setVisionLabTool('select')" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1.5" title="Sélectionner, déplacer ou redimensionner un bloc">
                   <i class="fa-solid fa-arrows-up-down-left-right"></i> Déplacer / Redim.
                 </button>
-                <button id="test-tool-btn-delete" onclick="deleteSelectedBoxInVisionLab()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-red-400 hover:bg-red-950/40 border border-slate-700 flex items-center gap-1.5" title="Supprimer le bloc sélectionné">
-                  <i class="fa-solid fa-trash-can"></i> Supprimer
+                <button id="test-tool-btn-delete" onclick="setVisionLabTool('delete')" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-rose-400 hover:bg-rose-950/40 border border-slate-700 flex items-center gap-1.5" title="Mode Gomme : cliquez sur n'importe quel bloc pour l'effacer directement">
+                  <i class="fa-solid fa-eraser text-rose-400"></i> Gomme
+                </button>
+                <button onclick="undoLastBox()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-amber-300 hover:bg-amber-950/40 border border-slate-700 flex items-center gap-1.5" title="Annuler / Effacer le dernier bloc créé (Raccourci: Ctrl+Z ou Suppr)">
+                  <i class="fa-solid fa-rotate-left text-amber-400"></i> Annuler (Ctrl+Z)
+                </button>
+                <button onclick="clearAllDetections()" class="px-2 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-400 hover:text-red-400 border border-slate-700 flex items-center gap-1" title="Effacer tous les blocs de cette page">
+                  <i class="fa-solid fa-trash-can text-red-400"></i> Tout effacer
                 </button>
                 <span class="text-slate-600">|</span>
                 <span class="text-slate-400 text-[11px] font-semibold">Classe :</span>
@@ -888,6 +866,11 @@
                   <i class="fa-solid fa-rocket text-amber-300"></i> 🚀 Entraîner le Modèle avec ces Blocs
                 </button>
               </div>
+            </div>
+
+            <!-- Bandeau d'Aide Effacement Rapide -->
+            <div class="text-[11px] text-slate-400 flex items-center justify-between px-1">
+              <span>💡 <strong>Astuce :</strong> Clic droit sur un bloc ou touche <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 font-mono text-[10px]">Suppr</kbd> / <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 font-mono text-[10px]">Backspace</kbd> pour l'effacer. Cliquez sur le badge rouge <strong>[✕]</strong> d'un bloc sélectionné. <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 border border-slate-700 font-mono text-[10px]">Ctrl+Z</kbd> pour annuler.</span>
             </div>
 
             <div class="overflow-auto border border-slate-800 rounded-xl shadow-2xl relative bg-slate-950 flex justify-center p-4" style="max-height: 700px;">
@@ -1001,8 +984,14 @@
             <button id="tool-btn-select" onclick="setAnnotationTool('select')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1.5">
               <i class="fa-solid fa-arrows-up-down-left-right"></i> Déplacer / Redimensionner
             </button>
-            <button id="tool-btn-delete" onclick="deleteSelectedBox()" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-red-400 hover:bg-red-950/40 border border-slate-700 flex items-center gap-1.5">
-              <i class="fa-solid fa-trash-can"></i> Supprimer
+            <button id="tool-btn-delete" onclick="setAnnotationTool('delete')" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-red-400 hover:bg-red-950/40 border border-slate-700 flex items-center gap-1.5" title="Mode Gomme : cliquez sur une boîte pour l'effacer">
+              <i class="fa-solid fa-eraser"></i> Gomme
+            </button>
+            <button onclick="undoLastBox()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-amber-300 hover:text-white hover:bg-slate-700 border border-slate-700 flex items-center gap-1.5" title="Annuler le dernier tracé (Ctrl+Z)">
+              <i class="fa-solid fa-rotate-left"></i> Annuler (Ctrl+Z)
+            </button>
+            <button onclick="clearAllDetections()" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-red-400 hover:text-white hover:bg-red-900/50 border border-red-900/40 flex items-center gap-1.5" title="Supprimer toutes les boîtes">
+              <i class="fa-solid fa-trash-can"></i> Tout effacer
             </button>
 
             <span class="text-slate-600 mx-1">|</span>
@@ -1033,7 +1022,7 @@
           <!-- Canvas d'Annotation Interactif -->
           <div class="lg:col-span-8 flex flex-col gap-2">
             <div class="text-[11px] text-slate-400 flex items-center justify-between px-1">
-              <span>Astuce : <strong>Clic + Glisser</strong> pour tracer un rectangle. Coins pour redimensionner.</span>
+              <span>Astuce : <strong>Clic + Glisser</strong> pour tracer. <strong>Suppr / Backspace</strong> ou pastille <strong>[✕]</strong> pour effacer. <strong>Clic droit</strong> ou <strong>Gomme</strong> pour supprimer immédiatement.</span>
               <span class="font-mono text-cyan-400" id="annotation-coords-hud">X: --, Y: --</span>
             </div>
 
@@ -4727,7 +4716,7 @@
             ctx.font = 'bold 10px sans-serif';
             ctx.fillText(label, d.x1 + 6, d.y1 - 5);
 
-            // Poignées d'ancrage aux 4 coins si sélectionné
+            // Poignées d'ancrage aux 4 coins si sélectionné + bouton [✕] de suppression immédiate
             if (isSelected) {
               ctx.fillStyle = '#ffffff';
               ctx.strokeStyle = '#0f172a';
@@ -4742,6 +4731,22 @@
                 ctx.fillRect(pt.x - 5, pt.y - 5, 10, 10);
                 ctx.strokeRect(pt.x - 5, pt.y - 5, 10, 10);
               });
+
+              // Pastille rouge [✕] de suppression immédiate en haut à droite
+              const closeX = d.x2 + 4;
+              const closeY = d.y1 - 10;
+              ctx.fillStyle = '#ef4444';
+              ctx.beginPath();
+              ctx.arc(closeX, closeY, 10, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(closeX - 4, closeY - 4);
+              ctx.lineTo(closeX + 4, closeY + 4);
+              ctx.moveTo(closeX + 4, closeY - 4);
+              ctx.lineTo(closeX - 4, closeY + 4);
+              ctx.stroke();
             }
           });
 
@@ -4774,6 +4779,35 @@
       }
     }
 
+    // Fonctions d'annulation et suppression directe
+    function undoLastBox() {
+      if (!visionLabState.currentDetections || visionLabState.currentDetections.length === 0) return;
+      if (visionLabState.selectedBoxId) {
+        visionLabState.currentDetections = visionLabState.currentDetections.filter(d => d.id !== visionLabState.selectedBoxId);
+        visionLabState.selectedBoxId = null;
+      } else {
+        visionLabState.currentDetections.pop();
+      }
+      renderVisionLabCanvas();
+      renderVisionLabDetectionsList();
+      updateVisionLabStatusBadge();
+      renderAnnotationCanvas();
+      renderAnnotatedBoxesList();
+    }
+
+    function clearAllDetections() {
+      if (!visionLabState.currentDetections || visionLabState.currentDetections.length === 0) return;
+      if (confirm("Voulez-vous supprimer tous les encadrements et annotations de cette page ?")) {
+        visionLabState.currentDetections = [];
+        visionLabState.selectedBoxId = null;
+        renderVisionLabCanvas();
+        renderVisionLabDetectionsList();
+        updateVisionLabStatusBadge();
+        renderAnnotationCanvas();
+        renderAnnotatedBoxesList();
+      }
+    }
+
     // Contrôles du curseur et outils de dessin pour la section Tester (+)
     function setVisionLabTool(tool) {
       visionLabState.annotationTool = tool;
@@ -4800,15 +4834,15 @@
     }
 
     function deleteSelectedBoxInVisionLab() {
-      if (!visionLabState.selectedBoxId) {
-        alert("Veuillez sélectionner un bloc à supprimer (en cliquant dessus avec le mode Déplacer ou Supprimer).");
-        return;
+      if (visionLabState.selectedBoxId) {
+        visionLabState.currentDetections = visionLabState.currentDetections.filter(d => d.id !== visionLabState.selectedBoxId);
+        visionLabState.selectedBoxId = null;
+        renderVisionLabCanvas();
+        renderVisionLabDetectionsList();
+        updateVisionLabStatusBadge();
+      } else if (visionLabState.currentDetections && visionLabState.currentDetections.length > 0) {
+        undoLastBox();
       }
-      visionLabState.currentDetections = visionLabState.currentDetections.filter(d => d.id !== visionLabState.selectedBoxId);
-      visionLabState.selectedBoxId = null;
-      renderVisionLabCanvas();
-      renderVisionLabDetectionsList();
-      updateVisionLabStatusBadge();
     }
 
     // =========================================================================
@@ -4817,13 +4851,23 @@
 
     function setAnnotationTool(tool) {
       visionLabState.annotationTool = tool;
+      const canvas = document.getElementById('annotation-canvas');
+      if (canvas) {
+        if (tool === 'draw') canvas.style.cursor = 'crosshair';
+        else if (tool === 'select') canvas.style.cursor = 'default';
+        else if (tool === 'delete') canvas.style.cursor = 'pointer';
+      }
       ['draw', 'select', 'delete'].forEach(t => {
         const btn = document.getElementById('tool-btn-' + t);
         if (btn) {
           if (t === tool) {
-            btn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white shadow flex items-center gap-1.5';
+            btn.className = (t === 'delete')
+              ? 'px-3 py-1.5 rounded-lg text-xs font-bold bg-red-600 text-white shadow flex items-center gap-1.5'
+              : 'px-3 py-1.5 rounded-lg text-xs font-bold bg-cyan-600 text-white shadow flex items-center gap-1.5';
           } else {
-            btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1.5';
+            btn.className = (t === 'delete')
+              ? 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-red-400 hover:bg-red-950/40 border border-slate-700 flex items-center gap-1.5'
+              : 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white border border-slate-700 flex items-center gap-1.5';
           }
         }
       });
@@ -4922,18 +4966,29 @@
         const pt = getCanvasPoint(e, canvas);
         const boxes = visionLabState.currentDetections;
 
+        // 1. Clic direct sur la pastille rouge [✕] de fermeture si une boîte est sélectionnée
+        if (visionLabState.selectedBoxId) {
+          const selBox = boxes.find(d => d.id === visionLabState.selectedBoxId);
+          if (selBox) {
+            const closeX = selBox.x2 + 4;
+            const closeY = selBox.y1 - 10;
+            if (Math.hypot(pt.x - closeX, pt.y - closeY) <= 14) {
+              deleteBoxById(selBox.id);
+              return;
+            }
+          }
+        }
+
         if (visionLabState.annotationTool === 'draw') {
           visionLabState.isDrawing = true;
           visionLabState.drawStart = pt;
           visionLabState.drawCurrent = pt;
         } else if (visionLabState.annotationTool === 'delete') {
-          // Trouver boîte cliquée
-          const clicked = [...boxes].reverse().find(d => pt.x >= d.x1 && pt.x <= d.x2 && pt.y >= d.y1 && pt.y <= d.y2);
+          // Trouver boîte cliquée avec marge généreuse
+          const clicked = [...boxes].reverse().find(d => pt.x >= d.x1 - 5 && pt.x <= d.x2 + 5 && pt.y >= d.y1 - 22 && pt.y <= d.y2 + 5);
           if (clicked) {
-            visionLabState.currentDetections = boxes.filter(b => b.id !== clicked.id);
-            visionLabState.selectedBoxId = null;
-            renderAnnotationCanvas();
-            renderAnnotatedBoxesList();
+            deleteBoxById(clicked.id);
+            return;
           }
         } else if (visionLabState.annotationTool === 'select') {
           // Vérifier si clic sur poignée de redimensionnement de la boîte sélectionnée
@@ -5048,6 +5103,16 @@
         visionLabState.dragHandle = null;
       });
 
+      canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const pt = getCanvasPoint(e, canvas);
+        const boxes = visionLabState.currentDetections;
+        const clicked = [...boxes].reverse().find(d => pt.x >= d.x1 - 5 && pt.x <= d.x2 + 5 && pt.y >= d.y1 - 22 && pt.y <= d.y2 + 5);
+        if (clicked) {
+          deleteBoxById(clicked.id);
+        }
+      });
+
       canvas.addEventListener('mouseleave', () => {
         visionLabState.isDrawing = false;
         visionLabState.isDragging = false;
@@ -5111,7 +5176,7 @@
         ctx.font = 'bold 10px sans-serif';
         ctx.fillText(tagText, d.x1 + 4, d.y1 - 5);
 
-        // Si sélectionné : poignées d'ancrage aux 4 coins
+        // Si sélectionné : poignées d'ancrage aux 4 coins + bouton [✕] de suppression immédiate
         if (isSelected) {
           ctx.fillStyle = '#ffffff';
           ctx.strokeStyle = '#0f172a';
@@ -5126,6 +5191,22 @@
             ctx.fillRect(pt.x - 5, pt.y - 5, 10, 10);
             ctx.strokeRect(pt.x - 5, pt.y - 5, 10, 10);
           });
+
+          // Pastille rouge [✕] de suppression immédiate au coin supérieur droit
+          const closeX = d.x2 + 4;
+          const closeY = d.y1 - 10;
+          ctx.fillStyle = '#ef4444';
+          ctx.beginPath();
+          ctx.arc(closeX, closeY, 10, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(closeX - 4, closeY - 4);
+          ctx.lineTo(closeX + 4, closeY + 4);
+          ctx.moveTo(closeX + 4, closeY - 4);
+          ctx.lineTo(closeX - 4, closeY + 4);
+          ctx.stroke();
         }
       });
 
@@ -5231,15 +5312,32 @@
         const pt = getCanvasPoint(e, canvas);
         const boxes = visionLabState.currentDetections;
 
+        // 1. Clic direct sur la pastille rouge [✕] de fermeture si une boîte est sélectionnée
+        if (visionLabState.selectedBoxId) {
+          const selBox = boxes.find(d => d.id === visionLabState.selectedBoxId);
+          if (selBox) {
+            const closeX = selBox.x2 + 4;
+            const closeY = selBox.y1 - 10;
+            if (Math.hypot(pt.x - closeX, pt.y - closeY) <= 14) {
+              deleteBoxById(selBox.id);
+              return;
+            }
+          }
+        }
+
+        // 2. Mode Gomme : suppression immédiate de la boîte cliquée
+        if (visionLabState.annotationTool === 'delete') {
+          const clicked = [...boxes].reverse().find(d => pt.x >= d.x1 - 5 && pt.x <= d.x2 + 5 && pt.y >= d.y1 - 22 && pt.y <= d.y2 + 5);
+          if (clicked) {
+            deleteBoxById(clicked.id);
+            return;
+          }
+        }
+
         if (visionLabState.annotationTool === 'draw') {
           visionLabState.isDrawing = true;
           visionLabState.drawStart = pt;
           visionLabState.drawCurrent = pt;
-        } else if (visionLabState.annotationTool === 'delete') {
-          const clicked = [...boxes].reverse().find(d => pt.x >= d.x1 && pt.x <= d.x2 && pt.y >= d.y1 && pt.y <= d.y2);
-          if (clicked) {
-            deleteBoxById(clicked.id);
-          }
         } else if (visionLabState.annotationTool === 'select') {
           // Poignées de redimensionnement de la boîte sélectionnée
           if (visionLabState.selectedBoxId) {
@@ -5276,6 +5374,16 @@
           }
           renderVisionLabCanvas();
           renderVisionLabDetectionsList();
+        }
+      });
+
+      canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const pt = getCanvasPoint(e, canvas);
+        const boxes = visionLabState.currentDetections;
+        const clicked = [...boxes].reverse().find(d => pt.x >= d.x1 - 5 && pt.x <= d.x2 + 5 && pt.y >= d.y1 - 22 && pt.y <= d.y2 + 5);
+        if (clicked) {
+          deleteBoxById(clicked.id);
         }
       });
 
@@ -5362,6 +5470,39 @@
         renderVisionLabCanvas();
       });
     }
+
+    // Raccourcis clavier globaux pour suppression et annulation instantanée
+    window.addEventListener('keydown', (e) => {
+      // Ignorer si l'utilisateur est en train de taper dans un champ de saisie
+      const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
+      if (activeTag === 'input' || activeTag === 'textarea') return;
+
+      // Touche Suppr ou Backspace -> supprime le bloc sélectionné ou le dernier bloc tracé
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (visionLabState.selectedBoxId) {
+          e.preventDefault();
+          deleteBoxById(visionLabState.selectedBoxId);
+        } else if (visionLabState.currentDetections && visionLabState.currentDetections.length > 0) {
+          e.preventDefault();
+          undoLastBox();
+        }
+      }
+
+      // Ctrl+Z / Cmd+Z -> Annuler le dernier encadrement
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+        e.preventDefault();
+        undoLastBox();
+      }
+
+      // Escape -> Annuler la sélection / tracé en cours
+      if (e.key === 'Escape') {
+        visionLabState.isDrawing = false;
+        visionLabState.isDragging = false;
+        visionLabState.selectedBoxId = null;
+        renderVisionLabCanvas();
+        renderAnnotationCanvas();
+      }
+    });
 
     function triggerContinuousTraining() {
       const doc = (visionLabState.currentDocKey && VISION_LAB_DOCUMENTS[visionLabState.currentDocKey]) ? VISION_LAB_DOCUMENTS[visionLabState.currentDocKey] : null;
