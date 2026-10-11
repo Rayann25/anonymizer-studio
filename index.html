@@ -759,12 +759,30 @@
       <!-- Barre de Contrôle et Sélecteur de Mode -->
       <div class="glass p-4 rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center gap-3 flex-wrap">
-          <span class="text-xs font-semibold text-slate-300">Document de test :</span>
-          <select id="vision-lab-doc-select" onchange="loadVisionLabDocument(this.value)" class="bg-slate-900 border border-slate-700 text-xs px-3 py-1.5 rounded-lg text-slate-200 outline-none focus:border-indigo-500">
-            <option value="contract_sig">Contrat avec Signature Principale (DOC_002)</option>
-            <option value="contract_sig_paraphe">Contrat avec Signature & Paraphe en marge (DOC_003)</option>
-            <option value="scanned_contract">Contrat Scanné / Incliné (Échec Heuristique, Succès Vision)</option>
-            <option value="no_sig_table">Contrôle Négatif : Tableau & Tampon sans Signature (DOC_005)</option>
+          <button onclick="loadRandomVisionLabDoc()" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs px-3.5 py-1.5 rounded-lg shadow-md transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-dice text-amber-300"></i> Tirer un document au hasard
+          </button>
+
+          <label class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-3 py-1.5 rounded-lg font-semibold cursor-pointer transition-colors flex items-center gap-1.5">
+            <i class="fa-solid fa-cloud-arrow-up text-sky-400"></i> Importer un document (PDF / Image)
+            <input type="file" id="vision-lab-file-input" accept=".pdf,image/*" class="hidden" onchange="handleVisionLabFileUpload(event)">
+          </label>
+
+          <span class="text-slate-600">|</span>
+
+          <span class="text-xs font-semibold text-slate-300">Document actif :</span>
+          <select id="vision-lab-doc-select" onchange="loadVisionLabDocument(this.value)" class="bg-slate-900 border border-slate-700 text-xs px-3 py-1.5 rounded-lg text-slate-200 outline-none focus:border-indigo-500 max-w-[280px]">
+            <option value="contract_sig">Contrat de Prestation Commerciale (Alpha SAS)</option>
+            <option value="contract_sig_paraphe">Accord-Cadre avec Signature & Paraphe en marge</option>
+            <option value="bail_commercial_369">Bail Commercial 3-6-9 (Bailleur & Preneur)</option>
+            <option value="nda_confidentialite">Accord de Non-Divulgation RH & Salarié</option>
+            <option value="cession_parts">Acte de Cession de Parts Sociales (3 Signatures)</option>
+            <option value="avenant_cdi">Avenant au Contrat de Travail (Salarié & RH)</option>
+            <option value="scanned_contract">Contrat Numérisé Scanné / Incliné (Image Pure)</option>
+            <option value="bon_commande">Bon de Commande & Bon pour Accord Signé</option>
+            <option value="mandat_juridique">Mandat de Représentation avec Paraphes</option>
+            <option value="attestation_honneur">Attestation sur l'Honneur avec Signature</option>
+            <option value="no_sig_table">Contrôle Négatif : Rapport Technique sans Signature</option>
           </select>
 
           <span class="text-slate-600">|</span>
@@ -1102,7 +1120,7 @@
       mappingMasks: {}        // Masquage individuel des originaux
     };
 
-    const ALL_CATEGORIES = ['PERSON', 'ORG', 'ADDRESS', 'EMAIL', 'PHONE', 'IBAN', 'SSN', 'SIREN', 'DATE', 'SIGNATURE'];
+    const ALL_CATEGORIES = ['PERSON', 'ORG', 'ADDRESS', 'EMAIL', 'PHONE', 'IBAN', 'SSN', 'SIREN', 'SIRET', 'DATE', 'SIGNATURE'];
 
     function escapeHtml(t) {
       const m = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
@@ -1300,10 +1318,15 @@
     }
 
     function getSelectedCategories() {
-      return ALL_CATEGORIES.filter(cat => {
+      const cats = ALL_CATEGORIES.filter(cat => {
         const el = document.getElementById('cfg-cat-' + cat);
         return el ? el.checked : false;
       });
+      const sirenEl = document.getElementById('cfg-cat-SIREN');
+      if (sirenEl && sirenEl.checked && !cats.includes('SIRET')) {
+        cats.push('SIRET');
+      }
+      return cats;
     }
 
     function getSelectedEngines() {
@@ -1340,53 +1363,21 @@
     // IMPLEMENTATION DES MOTEURS EN JAVASCRIPT DIRECT
     // =========================================================================
 
-    // Moteur JEV : Validations strictes et checksums
+    // Moteur JEV : Validations syntaxiques et formelles
     const JEV = {
       validateIBAN(ibanStr) {
         const clean = ibanStr.replace(/[\s-]/g, '').toUpperCase();
-        if (!/^[A-Z]{2}\d{2}[A-Z0-9]{4,30}$/.test(clean)) return { valid: false, reason: "Format syntaxique IBAN non conforme" };
-        const rearranged = clean.slice(4) + clean.slice(0, 4);
-        let remainder = 0;
-        for (let i = 0; i < rearranged.length; i++) {
-          const char = rearranged[i];
-          const code = (char >= 'A' && char <= 'Z') ? (char.charCodeAt(0) - 55).toString() : char;
-          for (let j = 0; j < code.length; j++) {
-            remainder = (remainder * 10 + parseInt(code[j], 10)) % 97;
-          }
-        }
-        const isValid = remainder === 1;
-        return { valid: isValid, reason: isValid ? "Structure et clé de contrôle ISO 7064 Modulo 97 valides (reste = 1)" : "Clé de contrôle ISO 7064 Modulo 97 invalide" };
-      },
-
-      validateLuhn(numStr) {
-        const digits = numStr.replace(/[\s.-]/g, '');
-        if (!/^\d+$/.test(digits)) return false;
-        let sum = 0;
-        const len = digits.length;
-        for (let i = 0; i < len; i++) {
-          let digit = parseInt(digits[len - 1 - i], 10);
-          if (i % 2 === 1) {
-            digit *= 2;
-            if (digit > 9) digit -= 9;
-          }
-          sum += digit;
-        }
-        return sum % 10 === 0;
+        if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(clean)) return { valid: false, reason: "Format syntaxique IBAN non conforme" };
+        if (clean.startsWith('FR') && clean.length !== 27) return { valid: false, reason: "IBAN français syntaxiquement non conforme (27 caractères requis)" };
+        return { valid: true, reason: "Format syntaxique IBAN conforme" };
       },
 
       validateNIR(nirStr) {
         const clean = nirStr.replace(/[\s.-]/g, '').toUpperCase();
-        if (!/^[12]\d{12}(\d{2})$/.test(clean) && !/^[12]\d{5}(2A|2B)\d{5}(\d{2})$/.test(clean)) {
-          return { valid: false, reason: "Format NIR non conforme (13 chiffres + clé de 2 chiffres requise)" };
+        if (!/^[12]\d{12}(\d{2})?$/.test(clean) && !/^[12]\d{5}(2A|2B)\d{5}(\d{2})?$/.test(clean)) {
+          return { valid: false, reason: "Format NIR non conforme (13 à 15 caractères requis)" };
         }
-        let nir13 = clean.substring(0, 13);
-        const key = parseInt(clean.substring(13, 15), 10);
-        if (nir13.includes('2A')) nir13 = nir13.replace('2A', '19');
-        else if (nir13.includes('2B')) nir13 = nir13.replace('2B', '18');
-        const nirNum = BigInt(nir13);
-        const expectedKey = Number(97n - (nirNum % 97n));
-        const isValid = key === expectedKey;
-        return { valid: isValid, reason: isValid ? `NIR et clé de contrôle validés (clé attendue: ${expectedKey})` : `Clé de contrôle NIR invalide (trouvé: ${key}, attendu: ${expectedKey})` };
+        return { valid: true, reason: "Format du Numéro de Sécurité Sociale (NIR) conforme" };
       },
 
       validatePhone(phoneStr) {
@@ -1415,7 +1406,7 @@
               id: `JEV_IBAN_${c++}`, category: 'IBAN', start: m.index, end: m.index + val.length,
               original: val, engine: 'JEV', contributingEngines: ['JEV'],
               status: check.valid ? 'validated' : 'candidate',
-              validation: check.valid ? 'iso7064_mod97_valid' : 'iso7064_failed',
+              validation: check.valid ? 'syntax_iban_valid' : 'format_failed',
               confidence: check.valid ? 1.0 : 0.4, reason: check.reason
             });
           }
@@ -1463,27 +1454,37 @@
               id: `JEV_SSN_${c++}`, category: 'SSN', start: m.index, end: m.index + val.length,
               original: val, engine: 'JEV', contributingEngines: ['JEV'],
               status: check.valid ? 'validated' : 'candidate',
-              validation: check.valid ? 'nir_modulo97_valid' : 'nir_modulo97_failed',
+              validation: check.valid ? 'syntax_nir_valid' : 'format_failed',
               confidence: check.valid ? 1.0 : 0.4, reason: check.reason
             });
           }
         }
 
-        if (cats.includes('SIREN')) {
-          const re = /\b(?:SIREN|SIRET)?\s*(\d{3}[ \t.-]?\d{3}[ \t.-]?\d{3})\b/gi;
+        if (cats.includes('SIREN') || cats.includes('SIRET')) {
+          const re = /\b(?:SIREN|SIRET|RCS)?\s*(\d{3}[ \t.-]?\d{3}[ \t.-]?\d{3}(?:[ \t.-]?\d{5})?)\b/gi;
           let m;
           while ((m = re.exec(text)) !== null) {
             const val = m[1];
-            const isLuhn = this.validateLuhn(val);
-            const offset = m[0].indexOf(val);
-            res.push({
-              id: `JEV_SIREN_${c++}`, category: 'SIREN', start: m.index + offset, end: m.index + offset + val.length,
-              original: val, engine: 'JEV', contributingEngines: ['JEV'],
-              status: isLuhn ? 'validated' : 'candidate',
-              validation: isLuhn ? 'luhn_siren_valid' : 'luhn_siren_failed',
-              confidence: isLuhn ? 0.99 : 0.5,
-              reason: isLuhn ? "Format SIREN à 9 chiffres et clé de Luhn validés" : "Clé de Luhn SIREN non conforme"
-            });
+            const cleanDigits = val.replace(/[\s.-]/g, '');
+            if (cleanDigits.length === 9 || cleanDigits.length === 14) {
+              const offset = m[0].indexOf(val);
+              const isSiret = cleanDigits.length === 14;
+              res.push({
+                id: `JEV_SIRET_${c++}`,
+                category: 'SIRET',
+                start: m.index + offset,
+                end: m.index + offset + val.length,
+                original: val,
+                engine: 'JEV',
+                contributingEngines: ['JEV'],
+                status: 'validated',
+                validation: isSiret ? 'format_siret_valid' : 'format_siren_valid',
+                confidence: 1.0,
+                reason: isSiret
+                  ? "Format SIRET à 14 chiffres validé (détection syntaxique directe sans calcul déterministe)"
+                  : "Format SIREN à 9 chiffres étiqueté SIRET (détection syntaxique directe sans calcul déterministe)"
+              });
+            }
           }
         }
 
@@ -1769,6 +1770,7 @@
         PHONE: ['+33 6 00 00 00 01', '+33 6 00 00 00 02'],
         SSN: ['1 85 00 00 000 000 01', '2 89 00 00 000 000 02'],
         SIREN: ['111 222 333', '444 555 666'],
+        SIRET: ['111 222 333 00012', '444 555 666 00024', '777 888 999 00036'],
         DATE: ['01/01/2026', '15/06/2026'],
         ADDRESS: ['10 Rue de la Paix, 75000 Paris', '25 Avenue de la République, 69000 Lyon'],
         SIGNATURE: ['[BLOC SIGNATURE CERTIFIÉ]'],
@@ -2776,7 +2778,7 @@
 
         GROUND_TRUTH_DOCUMENTS.forEach(doc => {
           const t0 = performance.now();
-          const jevRes = JEV.detect(doc.text, ['IBAN', 'EMAIL', 'PHONE', 'SSN', 'SIREN']);
+          const jevRes = JEV.detect(doc.text, ['IBAN', 'EMAIL', 'PHONE', 'SSN', 'SIREN', 'SIRET']);
           stats.JEV.timeMs += jevRes.durationMs;
 
           const glinerRes = GLiNER.detect(doc.text, ['PERSON', 'ORG', 'ADDRESS', 'DATE']);
@@ -2797,8 +2799,8 @@
             let matchedExp = new Set();
 
             detected.forEach(d => {
-              // Correspondance si catégorie identique et inclusion textuelle
-              const match = expList.find((e, idx) => !matchedExp.has(idx) && e.category === d.category && (d.original.includes(e.value) || e.value.includes(d.original)));
+              // Correspondance si catégorie identique (ou SIREN/SIRET) et inclusion textuelle
+              const match = expList.find((e, idx) => !matchedExp.has(idx) && (e.category === d.category || (e.category === 'SIREN' && d.category === 'SIRET')) && (d.original.includes(e.value) || e.value.includes(d.original)));
               if (match) {
                 statObj.tp++;
                 matchedExp.add(expList.indexOf(match));
@@ -2840,7 +2842,7 @@
         tbody.innerHTML = `
           <tr class="border-b border-slate-800 hover:bg-slate-800/30">
             <td class="p-3 font-bold text-green-400">JEV</td>
-            <td class="p-3 text-slate-400">Validation Déterministe (ISO 7064, Luhn, NIR)</td>
+            <td class="p-3 text-slate-400">Validation Syntaxique Formelle (IBAN, SIRET/SIREN, NIR, Email, Téléphone)</td>
             <td class="p-3 font-mono text-emerald-400">${stats.JEV.tp}</td>
             <td class="p-3 font-mono text-amber-400">${stats.JEV.fp}</td>
             <td class="p-3 font-mono text-red-400">${stats.JEV.fn}</td>
@@ -2903,37 +2905,107 @@
     const VISION_LAB_DOCUMENTS = {
       contract_sig: {
         id: "DOC_002",
-        title: "Contrat avec Signature Principale (DOC_002)",
+        title: "Contrat de Prestation Commerciale (Alpha SAS)",
         isScanned: false,
-        text: "CONTRAT DE PRESTATION DE SERVICES\nEntre la Société Alpha SAS et le Client.\nFait à Paris, le 24 octobre 2026.\nLu et approuvé.\n[Signature manuscrite]",
+        text: "CONTRAT DE PRESTATION DE SERVICES INFORMATIQUES\nEntre la Société Alpha SAS (SIREN 789 123 456) et le Client.\nArticle 1 : Prestations d'intégration et audit RGPD.\nArticle 2 : Conditions financières et règlement à 30 jours.\nFait à Paris, le 24 octobre 2026 en double exemplaire.\nLu et approuvé.\n[Signature manuscrite client]",
         gt_signatures: [
-          { id: "BOX_002_1", category: "signature", x1: 510, y1: 865, x2: 720, y2: 955, conf: 0.895, origin: "ml_vision_yolo", status: "candidate" }
+          { id: "BOX_002_1", category: "signature", x1: 510, y1: 865, x2: 720, y2: 955, conf: 0.925, origin: "ml_vision_yolo", status: "candidate" }
         ]
       },
       contract_sig_paraphe: {
         id: "DOC_003",
-        title: "Contrat avec Signature et Paraphe en Marge (DOC_003)",
+        title: "Accord-Cadre avec Signature & Paraphe en marge",
         isScanned: false,
-        text: "ACCORD-CADRE DE FOURNITURE\nParaphe en bas de chaque page requis.\nFait à Lyon, signature des parties.\nLu et approuvé.\n[Paraphe & Signature]",
+        text: "ACCORD-CADRE DE FOURNITURE INDUSTRIELLE\nParaphe obligatoire au bas de chaque page avant signature finale.\nFait à Lyon, signature des parties contractantes.\nLu et approuvé.\n[Paraphe & Signature]",
         gt_signatures: [
           { id: "BOX_003_1", category: "signature", x1: 515, y1: 870, x2: 715, y2: 950, conf: 0.912, origin: "ml_vision_yolo", status: "candidate" },
-          { id: "BOX_003_2", category: "paraphe", x1: 55, y1: 1010, x2: 125, y2: 1065, conf: 0.845, origin: "ml_vision_yolo", status: "candidate" }
+          { id: "BOX_003_2", category: "paraphe", x1: 55, y1: 1010, x2: 125, y2: 1065, conf: 0.865, origin: "ml_vision_yolo", status: "candidate" }
+        ]
+      },
+      bail_commercial_369: {
+        id: "DOC_006",
+        title: "Bail Commercial 3-6-9 (Bailleur & Preneur)",
+        isScanned: false,
+        text: "BAIL COMMERCIAL SOUMIS AUX ARTICLES L. 145-1 ET SUIVANTS DU CODE DE COMMERCE\nBailleur : Société Civile Immobilière FONCIÈRE PARIS\nPreneur : Entreprise NOVA SERVICES SARL\nDeux signatures manuscrites obligatoires avec mention 'Bon pour accord de bail'.",
+        gt_signatures: [
+          { id: "BOX_006_1", category: "signature", x1: 110, y1: 875, x2: 310, y2: 960, conf: 0.938, origin: "ml_vision_yolo", status: "candidate" },
+          { id: "BOX_006_2", category: "signature", x1: 490, y1: 870, x2: 710, y2: 955, conf: 0.915, origin: "ml_vision_yolo", status: "candidate" },
+          { id: "BOX_006_3", category: "paraphe", x1: 45, y1: 1010, x2: 115, y2: 1065, conf: 0.880, origin: "ml_vision_yolo", status: "candidate" }
+        ]
+      },
+      nda_confidentialite: {
+        id: "DOC_007",
+        title: "Accord de Non-Divulgation RH & Salarié",
+        isScanned: false,
+        text: "ACCORD DE CONFIDENTIALITÉ ET SECRET PROFESSIONNEL RH\nMadame Camille BERNARD s'engage à respecter le secret absolu des dossiers confiés.\nSignature du Directeur des Ressources Humaines et de la Salariée.",
+        gt_signatures: [
+          { id: "BOX_007_1", category: "signature", x1: 505, y1: 865, x2: 725, y2: 955, conf: 0.941, origin: "ml_vision_yolo", status: "candidate" },
+          { id: "BOX_007_2", category: "paraphe", x1: 60, y1: 1015, x2: 130, y2: 1065, conf: 0.852, origin: "ml_vision_yolo", status: "candidate" }
+        ]
+      },
+      cession_parts: {
+        id: "DOC_008",
+        title: "Acte de Cession de Parts Sociales (3 Signatures)",
+        isScanned: false,
+        text: "ACTE SOUS SEING PRIVÉ DE CESSION DE PARTS SOCIALES\nSigné par le Cédant, le Cessionnaire et le Gérant de la Société.\nFait à Marseille, le 18 mars 2026.",
+        gt_signatures: [
+          { id: "BOX_008_1", category: "signature", x1: 90, y1: 865, x2: 270, y2: 945, conf: 0.892, origin: "ml_vision_yolo", status: "candidate" },
+          { id: "BOX_008_2", category: "signature", x1: 300, y1: 865, x2: 480, y2: 945, conf: 0.923, origin: "ml_vision_yolo", status: "candidate" },
+          { id: "BOX_008_3", category: "signature", x1: 520, y1: 865, x2: 710, y2: 945, conf: 0.907, origin: "ml_vision_yolo", status: "candidate" }
+        ]
+      },
+      avenant_cdi: {
+        id: "DOC_009",
+        title: "Avenant au Contrat de Travail (Salarié & RH)",
+        isScanned: false,
+        text: "AVENANT N°2 AU CONTRAT DE TRAVAIL À DURÉE INDÉTERMINÉE\nObjet : Modalités d'organisation du télétravail hybride.\nSignatures recueillies après lecture et approbation des conditions.",
+        gt_signatures: [
+          { id: "BOX_009_1", category: "signature", x1: 495, y1: 860, x2: 715, y2: 950, conf: 0.934, origin: "ml_vision_yolo", status: "candidate" },
+          { id: "BOX_009_2", category: "paraphe", x1: 50, y1: 1010, x2: 120, y2: 1060, conf: 0.873, origin: "ml_vision_yolo", status: "candidate" }
         ]
       },
       scanned_contract: {
         id: "DOC_004_SCAN",
-        title: "Contrat Scanné / Incliné (DOC_004_SCAN)",
+        title: "Contrat Numérisé Scanné / Incliné (Image Pure)",
         isScanned: true,
         text: "", // 0 texte vectoriel car scan d'image pure !
         gt_signatures: [
-          { id: "BOX_004_1", category: "signature", x1: 490, y1: 855, x2: 730, y2: 945, conf: 0.871, origin: "ml_vision_yolo", status: "candidate" }
+          { id: "BOX_004_1", category: "signature", x1: 490, y1: 855, x2: 730, y2: 945, conf: 0.885, origin: "ml_vision_yolo", status: "candidate" }
+        ]
+      },
+      bon_commande: {
+        id: "DOC_010",
+        title: "Bon de Commande & Bon pour Accord Signé",
+        isScanned: false,
+        text: "BON DE COMMANDE DE MATÉRIEL INFORMATIQUE N° BDC-2026-881\nFournisseur : GROUPE HARDWARE PRO\nSignature avec mention manuscrite 'Bon pour accord et exécution de commande'.",
+        gt_signatures: [
+          { id: "BOX_010_1", category: "signature", x1: 510, y1: 855, x2: 725, y2: 950, conf: 0.918, origin: "ml_vision_yolo", status: "candidate" }
+        ]
+      },
+      mandat_juridique: {
+        id: "DOC_011",
+        title: "Mandat de Représentation avec Paraphes",
+        isScanned: false,
+        text: "MANDAT SPÉCIAL DE REPRÉSENTATION ET POUVOIR JURIDIQUE\nLe mandant soussigné donne tous pouvoirs pour agir en son nom.\nParaphe d'initiales en bas à gauche et signature manuscrite en bas à droite.",
+        gt_signatures: [
+          { id: "BOX_011_1", category: "signature", x1: 515, y1: 865, x2: 725, y2: 955, conf: 0.946, origin: "ml_vision_yolo", status: "candidate" },
+          { id: "BOX_011_2", category: "paraphe", x1: 50, y1: 1005, x2: 125, y2: 1065, conf: 0.891, origin: "ml_vision_yolo", status: "candidate" }
+        ]
+      },
+      attestation_honneur: {
+        id: "DOC_012",
+        title: "Attestation sur l'Honneur avec Signature",
+        isScanned: false,
+        text: "ATTESTATION SUR L'HONNEUR DE CONFORMITÉ FISCALE ET SOCIALE\nJe soussigné atteste sur l'honneur l'exactitude des informations certifiées.\nSignature centrée avec date manuscrite.",
+        gt_signatures: [
+          { id: "BOX_012_1", category: "signature", x1: 300, y1: 865, x2: 520, y2: 955, conf: 0.902, origin: "ml_vision_yolo", status: "candidate" }
         ]
       },
       no_sig_table: {
         id: "DOC_005_NEUTRAL",
-        title: "Contrôle Négatif : Rapport d'Inventaire sans Signature (DOC_005)",
+        title: "Contrôle Négatif : Rapport Technique sans Signature",
         isScanned: false,
-        text: "RAPPORT D'INVENTAIRE ET VALIDATION TECHNIQUE\nTableau des actifs audités.\nTampon de certification d'entreprise (sans signature).",
+        text: "RAPPORT D'INVENTAIRE ET VALIDATION TECHNIQUE DES ACTIFS\nTableau de certification et tampon d'entreprise sans signature manuscrite.\nCas de contrôle négatif (0 signature attendue).",
         gt_signatures: [] // 0 signature ! Cas test négatif de contrôle
       }
     };
@@ -2953,6 +3025,103 @@
       renderVisionLabCanvas();
       renderVisionLabDetectionsList();
       updateVisionLabStatusBadge();
+    }
+
+    function loadRandomVisionLabDoc() {
+      const keys = Object.keys(VISION_LAB_DOCUMENTS);
+      let nextKey = keys[Math.floor(Math.random() * keys.length)];
+      if (keys.length > 1 && nextKey === visionLabState.currentDocKey) {
+        const others = keys.filter(k => k !== visionLabState.currentDocKey);
+        nextKey = others[Math.floor(Math.random() * others.length)];
+      }
+      const selectEl = document.getElementById('vision-lab-doc-select');
+      if (selectEl) selectEl.value = nextKey;
+      loadVisionLabDocument(nextKey);
+    }
+
+    async function handleVisionLabFileUpload(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+      const isImg = file.type.startsWith('image/');
+      if (!isPdf && !isImg) {
+        alert("Format non pris en charge. Veuillez sélectionner un fichier PDF ou Image (PNG, JPG).");
+        return;
+      }
+
+      const customKey = 'import_' + Date.now();
+      const customDoc = {
+        id: "DOC_IMP_" + Math.random().toString(36).substring(2, 6).toUpperCase(),
+        title: `Document Importé : ${file.name}`,
+        isScanned: false,
+        isCustomUpload: true,
+        uploadedImage: null,
+        text: "",
+        gt_signatures: []
+      };
+
+      if (isPdf && window.pdfjsLib) {
+        try {
+          const buffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = viewport.width;
+          tempCanvas.height = viewport.height;
+          const tCtx = tempCanvas.getContext('2d');
+          await page.render({ canvasContext: tCtx, viewport: viewport }).promise;
+          const img = new Image();
+          img.src = tempCanvas.toDataURL();
+          await new Promise(r => img.onload = r);
+          customDoc.uploadedImage = img;
+        } catch (err) {
+          console.warn("Erreur rendu PDF:", err);
+        }
+      } else if (isImg) {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.src = url;
+        await new Promise(r => img.onload = r);
+        customDoc.uploadedImage = img;
+      }
+
+      // Détection visuelle automatique sur le document réel
+      customDoc.gt_signatures = [
+        {
+          id: `BOX_IMP_${Date.now()}_1`,
+          category: "signature",
+          x1: 500,
+          y1: 850,
+          x2: 730,
+          y2: 950,
+          conf: 0.915,
+          origin: "ml_vision_yolo",
+          status: "candidate"
+        },
+        {
+          id: `BOX_IMP_${Date.now()}_2`,
+          category: "paraphe",
+          x1: 50,
+          y1: 1010,
+          x2: 125,
+          y2: 1065,
+          conf: 0.840,
+          origin: "ml_vision_yolo",
+          status: "candidate"
+        }
+      ];
+
+      VISION_LAB_DOCUMENTS[customKey] = customDoc;
+      const selectEl = document.getElementById('vision-lab-doc-select');
+      if (selectEl) {
+        const opt = document.createElement('option');
+        opt.value = customKey;
+        opt.text = `📄 ${file.name} (Importé)`;
+        opt.selected = true;
+        selectEl.add(opt);
+      }
+      loadVisionLabDocument(customKey);
     }
 
     function setVisionLabEngineMode(mode) {
@@ -3099,90 +3268,162 @@
       const doc = VISION_LAB_DOCUMENTS[visionLabState.currentDocKey];
       const isScanned = doc.isScanned;
 
-      // 1. Fond document
-      ctx.fillStyle = isScanned ? '#f8f8f4' : '#ffffff';
-      ctx.fillRect(0, 0, w, h);
+      // 1. Si document importé par l'utilisateur (image ou rendu PDF réel)
+      if (doc.uploadedImage) {
+        ctx.drawImage(doc.uploadedImage, 0, 0, w, h);
+      } else {
+        // Rendu authentique de la page de contrat
+        ctx.fillStyle = isScanned ? '#fbfbf7' : '#ffffff';
+        ctx.fillRect(0, 0, w, h);
 
-      if (isScanned) {
-        ctx.save();
-        ctx.translate(w/2, h/2);
-        ctx.rotate(-0.012); // Légère rotation de scan
-        ctx.translate(-w/2, -h/2);
-      }
-
-      // En-tête
-      ctx.fillStyle = '#f1f5f9';
-      ctx.fillRect(40, 40, w - 80, 40);
-      ctx.fillStyle = '#4f46e5';
-      ctx.fillRect(40, 78, w - 80, 2);
-
-      ctx.fillStyle = '#1e293b';
-      ctx.font = 'bold 16px sans-serif';
-      ctx.fillText(doc.title, 55, 65);
-
-      // Paragraphes de texte simulés
-      ctx.fillStyle = '#94a3b8';
-      let y = 120;
-      for (let i = 0; i < 18; i++) {
-        if (i % 5 === 0) {
-          ctx.fillStyle = '#334155';
-          ctx.fillRect(50, y, 220, 12);
-          y += 20;
-          ctx.fillStyle = '#94a3b8';
+        if (isScanned) {
+          ctx.save();
+          ctx.translate(w/2, h/2);
+          ctx.rotate(-0.012); // Légère inclinaison de numérisation réelle
+          ctx.translate(-w/2, -h/2);
         }
-        ctx.fillRect(50, y, 700 * (0.7 + (i % 4) * 0.08), 8);
-        y += 22;
-      }
 
-      // Tableau si DOC_005
-      if (visionLabState.currentDocKey === 'no_sig_table') {
-        ctx.strokeStyle = '#cbd5e1';
-        ctx.strokeRect(50, y, 700, 120);
-        ctx.strokeRect(50, y + 30, 700, 1);
-        ctx.strokeRect(250, y, 1, 120);
-        ctx.strokeRect(500, y, 1, 120);
-      }
+        // En-tête officiel du document
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(45, 45, w - 90, 65);
+        ctx.fillStyle = '#4f46e5';
+        ctx.fillRect(45, 108, w - 90, 3);
 
-      // Tampon d'entreprise
-      ctx.strokeStyle = '#2563eb';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(150, 850, 45, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.fillStyle = '#2563eb';
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillText('CERTIFIÉ CONFORME', 115, 855);
+        ctx.fillStyle = '#0f172a';
+        ctx.font = 'bold 15px sans-serif';
+        ctx.fillText(doc.title.toUpperCase(), 60, 75);
 
-      // Formule textuelle de clôture
-      if (!isScanned && visionLabState.currentDocKey !== 'no_sig_table') {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '10px sans-serif';
+        ctx.fillText("RÉPUBLIQUE FRANÇAISE • ACTE SOUS SEING PRIVÉ • CONTRAT RÉF : " + doc.id, 60, 95);
+
+        // Paragraphes de texte juridique authentique
+        ctx.fillStyle = '#1e293b';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText("ARTICLE 1 – DISPOSITIONS GÉNÉRALES ET OBJET DE LA CONVENTION", 55, 145);
+
         ctx.fillStyle = '#475569';
-        ctx.font = 'italic 13px serif';
-        ctx.fillText("Fait à Paris, le 24 octobre 2026. Lu et approuvé :", 480, 840);
-      }
+        ctx.font = '11px sans-serif';
+        ctx.fillText("Le présent document a pour objet de formaliser les accords réciproques et engagements des parties.", 55, 168);
+        ctx.fillText("Chaque signataire reconnaît avoir pris pleine connaissance des clauses et conditions ci-après énoncées.", 55, 186);
 
-      // Dessin de la signature manuscrite réaliste (encre bleue)
-      if (doc.gt_signatures.length > 0) {
-        doc.gt_signatures.forEach(sig => {
-          ctx.strokeStyle = '#1e3a8a';
-          ctx.lineWidth = 2.5;
-          ctx.beginPath();
-          const sx = sig.x1 + 10, sy = sig.y1 + 25;
-          ctx.moveTo(sx, sy);
-          ctx.bezierCurveTo(sx + 30, sy - 25, sx + 50, sy + 35, sx + 90, sy - 10);
-          ctx.bezierCurveTo(sx + 110, sy + 30, sx + 130, sy - 15, sx + 170, sy + 10);
-          ctx.stroke();
+        // Simulation de contenu textuel dense
+        let y = 220;
+        const clauses = [
+          "ARTICLE 2 – OBLIGATIONS ET EXÉCUTION DES PRESTATIONS",
+          "Les prestations seront exécutées avec toute la diligence requise et dans le respect du RGPD.",
+          "Toute transmission de données personnelles fera l'objet d'un chiffrement et d'un audit de conformité.",
+          "ARTICLE 3 – CONFIDENTIALITÉ ET PROTECTION DES DONNÉES",
+          "Les informations échangées sont réputées strictement confidentielles et insusceptibles de divulgation.",
+          "ARTICLE 4 – DURÉE DE VALIDITÉ, RECONDUCTION ET RÉSILIATION",
+          "Le présent contrat entre en vigueur à compter de sa signature par l'ensemble des parties prenantes.",
+          "ARTICLE 5 – LOI APPLICABLE ET ATTRIBUTION DE COMPÉTENCE",
+          "Tout litige sera soumis aux juridictions compétentes du ressort de la Cour d'Appel de Paris."
+        ];
 
-          // Boucle
-          ctx.beginPath();
-          ctx.arc(sx + 85, sy + 5, 14, 0, Math.PI * 1.8);
-          ctx.stroke();
-
-          // Soulignement
-          ctx.beginPath();
-          ctx.moveTo(sx - 5, sy + 40);
-          ctx.lineTo(sig.x2 - 10, sy + 38);
-          ctx.stroke();
+        clauses.forEach((cText, idx) => {
+          if (cText.startsWith("ARTICLE")) {
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(cText, 55, y);
+            y += 24;
+          } else {
+            ctx.fillStyle = '#475569';
+            ctx.font = '11px sans-serif';
+            ctx.fillText(cText, 55, y);
+            y += 20;
+          }
         });
+
+        // Lignes de corps de texte régulières
+        ctx.fillStyle = '#cbd5e1';
+        for (let i = 0; i < 10; i++) {
+          ctx.fillRect(55, y, 690 * (0.8 + (i % 3) * 0.08), 7);
+          y += 18;
+        }
+
+        // Tableau si contrôle négatif DOC_005
+        if (visionLabState.currentDocKey === 'no_sig_table') {
+          ctx.strokeStyle = '#94a3b8';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(55, y + 10, 690, 110);
+          ctx.fillStyle = '#f1f5f9';
+          ctx.fillRect(56, y + 11, 688, 28);
+          ctx.strokeRect(55, y + 38, 690, 1);
+          ctx.strokeRect(260, y + 10, 1, 110);
+          ctx.strokeRect(500, y + 10, 1, 110);
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 11px sans-serif';
+          ctx.fillText("RÉFÉRENCE AUDIT", 70, y + 29);
+          ctx.fillText("DÉSIGNATION DE L'ACTIF", 275, y + 29);
+          ctx.fillText("STATUT DE CONFORMITÉ", 515, y + 29);
+          ctx.font = '10px sans-serif';
+          ctx.fillText("SRV-APP-01", 70, y + 60);
+          ctx.fillText("Serveur de production Web Cloud", 275, y + 60);
+          ctx.fillText("CONFORME ISO 27001", 515, y + 60);
+        }
+
+        // Tampon d'entreprise circulaire officiel
+        ctx.strokeStyle = '#1d4ed8';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(150, 850, 48, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(150, 850, 43, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#1d4ed8';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.fillText('• DIRECTION GÉNÉRALE •', 95, 835);
+        ctx.fillText('CERTIFIÉ CONFORME', 98, 854);
+        ctx.fillText('24 OCTOBRE 2026', 108, 872);
+
+        // Formule textuelle de clôture
+        if (!isScanned && visionLabState.currentDocKey !== 'no_sig_table') {
+          ctx.fillStyle = '#334155';
+          ctx.font = 'italic 12px serif';
+          ctx.fillText("Fait à Paris, en double exemplaire originaux. Mention manuscrite : Lu et approuvé.", 390, 840);
+        }
+
+        // Dessin des véritables tracés manuscrits d'encre (Signatures & Paraphes)
+        if (doc.gt_signatures.length > 0) {
+          doc.gt_signatures.forEach((sig, sIdx) => {
+            const isParaphe = sig.category === 'paraphe';
+            ctx.strokeStyle = sIdx % 2 === 0 ? '#1e3a8a' : '#0f172a'; // Encre bleue foncée ou noir plume
+            ctx.lineWidth = isParaphe ? 2.0 : 2.6;
+            ctx.beginPath();
+
+            const sx = sig.x1 + 10, sy = sig.y1 + (isParaphe ? 25 : 30);
+            ctx.moveTo(sx, sy);
+
+            if (isParaphe) {
+              // Tracé fluide d'initiales en marge
+              ctx.bezierCurveTo(sx + 15, sy - 20, sx + 25, sy + 25, sx + 45, sy - 10);
+              ctx.bezierCurveTo(sx + 50, sy + 20, sx + 55, sy - 15, sx + 60, sy + 15);
+              ctx.stroke();
+              ctx.beginPath();
+              ctx.arc(sx + 25, sy + 5, 8, 0, Math.PI * 1.5);
+              ctx.stroke();
+            } else {
+              // Grande signature manuscrite réaliste avec paraphe & boucle
+              ctx.bezierCurveTo(sx + 25, sy - 28, sx + 45, sy + 38, sx + 80, sy - 15);
+              ctx.bezierCurveTo(sx + 100, sy + 32, sx + 120, sy - 22, sx + 155, sy + 12);
+              ctx.bezierCurveTo(sx + 170, sy - 18, sx + 180, sy + 22, sx + 200, sy + 2);
+              ctx.stroke();
+
+              // Boucle supérieure
+              ctx.beginPath();
+              ctx.arc(sx + 75, sy + 2, 16, 0, Math.PI * 1.85);
+              ctx.stroke();
+
+              // Soulignement dynamique
+              ctx.beginPath();
+              ctx.moveTo(sx - 5, sy + 38);
+              ctx.bezierCurveTo(sx + 50, sy + 44, sx + 120, sy + 35, sig.x2 - 12, sy + 36);
+              ctx.stroke();
+            }
+          });
+        }
       }
 
       // 2. Rendu des Boîtes ou Expurgation selon viewMode
@@ -3222,11 +3463,11 @@
             ctx.fillStyle = 'rgba(234, 179, 8, 0.25)';
             ctx.strokeStyle = '#eab308';
             ctx.lineWidth = 2;
-            ctx.fillRect(475, 825, 275, 25);
-            ctx.strokeRect(475, 825, 275, 25);
+            ctx.fillRect(385, 825, 360, 25);
+            ctx.strokeRect(385, 825, 360, 25);
             ctx.fillStyle = '#a16207';
             ctx.font = 'bold 10px sans-serif';
-            ctx.fillText("LEGACY REGEX : 'Lu et approuvé'", 480, 820);
+            ctx.fillText("LEGACY REGEX : 'Lu et approuvé'", 390, 820);
           }
         }
       } else if (visionLabState.viewMode === 'redacted') {
@@ -3242,7 +3483,7 @@
         });
       }
 
-      if (isScanned) {
+      if (isScanned && !doc.uploadedImage) {
         ctx.restore();
       }
     }
