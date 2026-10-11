@@ -1484,11 +1484,27 @@
       }
     };
 
+    function formatDetectionsProof(detections, maxCount = 3) {
+      if (!detections || !detections.length) return "";
+      const samples = detections.slice(0, maxCount).map(d => {
+        const val = (d.original || '').trim();
+        const shortVal = val.length > 25 ? val.substring(0, 22) + "..." : val;
+        return `[${d.category}] '${shortVal}'`;
+      });
+      const remaining = detections.length - samples.length;
+      return `tels que : ${samples.join(', ')}${remaining > 0 ? ` (+${remaining} autre${remaining > 1 ? 's' : ''})` : ''}`;
+    }
+
     // Orchestrateur et Fusion
     function resolveCollisions(detections) {
-      if (!detections.length) return [];
+      if (!detections.length) {
+        const empty = [];
+        empty.collisions = [];
+        return empty;
+      }
       const sorted = [...detections].sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
       const merged = [];
+      const collisions = [];
       let current = null;
 
       for (const det of sorted) {
@@ -1498,6 +1514,7 @@
         }
 
         if (det.start === current.start && det.end === current.end) {
+          collisions.push({ original: det.original, category: det.category, engines: [current.engine, det.engine] });
           if (!current.contributingEngines.includes(det.engine)) current.contributingEngines.push(det.engine);
           if (det.status === 'validated') {
             current.status = 'validated';
@@ -1506,6 +1523,7 @@
             current.reason = det.reason;
           }
         } else if (det.start < current.end) {
+          collisions.push({ original: det.original, category: det.category, engines: [current.engine, det.engine] });
           if (!current.contributingEngines.includes(det.engine)) current.contributingEngines.push(det.engine);
           if (det.engine === 'JEV' && det.status === 'validated' && current.engine !== 'JEV') {
             current = { ...det, contributingEngines: current.contributingEngines };
@@ -1516,6 +1534,7 @@
         }
       }
       if (current) merged.push(current);
+      merged.collisions = collisions;
       return merged;
     }
 
@@ -1567,6 +1586,10 @@
       if (engines.jev) {
         const jevRes = JEV.detect(text, cats);
         raw.push(...jevRes.detections);
+        const jevProof = formatDetectionsProof(jevRes.detections, 3);
+        const jevReason = jevRes.detections.length > 0
+          ? `JEV a validé ${jevRes.detections.length} identifiant(s) formel(s) ${jevProof}`
+          : `JEV n'a détecté aucun identifiant formel (0 IBAN, NIR, SIREN ou email formel conforme)`;
         auditEvents.push({
           eventId: `EVT_JEV_${Date.now()}_2`,
           timestamp: new Date().toISOString(),
@@ -1575,7 +1598,7 @@
           action: 'DETECT',
           status: 'success',
           durationMs: Math.round(jevRes.durationMs),
-          reason: `JEV a détecté ${jevRes.detections.length} identifiant(s) formel(s)`
+          reason: jevReason
         });
       }
 
@@ -1583,6 +1606,10 @@
       if (engines.gliner) {
         const glinerRes = GLiNER.detect(text, cats);
         raw.push(...glinerRes.detections);
+        const gliProof = formatDetectionsProof(glinerRes.detections, 3);
+        const gliReason = glinerRes.detections.length > 0
+          ? `GLiNERHeuristicsEngine a extrait ${glinerRes.detections.length} entité(s) syntaxique(s) ${gliProof}`
+          : `GLiNER n'a extrait aucune entité syntaxique dans le texte analysé`;
         auditEvents.push({
           eventId: `EVT_GLI_${Date.now()}_3`,
           timestamp: new Date().toISOString(),
@@ -1591,7 +1618,7 @@
           action: 'DETECT',
           status: 'success',
           durationMs: Math.round(glinerRes.durationMs),
-          reason: `GLiNERHeuristicsEngine a extrait ${glinerRes.detections.length} entité(s) syntaxique(s)`
+          reason: gliReason
         });
       }
 
@@ -1599,6 +1626,10 @@
       if (engines.vision) {
         const visRes = Vision.detect(text, cats);
         raw.push(...visRes.detections);
+        const visProof = formatDetectionsProof(visRes.detections, 2);
+        const visReason = visRes.detections.length > 0
+          ? `VisionSignatureEngine a repéré ${visRes.detections.length} zone(s) de clôture/signature ${visProof}`
+          : `VisionSignatureEngine a repéré 0 zone de clôture (aucune formule terminale d'approbation 'Lu et approuvé', 'Fait à...' ou paraphe détectée)`;
         auditEvents.push({
           eventId: `EVT_VIS_${Date.now()}_4`,
           timestamp: new Date().toISOString(),
@@ -1607,7 +1638,7 @@
           action: 'DETECT',
           status: 'success',
           durationMs: Math.round(visRes.durationMs),
-          reason: `VisionSignatureEngine a repéré ${visRes.detections.length} zone(s) de clôture/signature candidate(s)`
+          reason: visReason
         });
       }
 
@@ -1615,6 +1646,16 @@
       const mergeStart = performance.now();
       const consolidated = resolveCollisions(raw);
       const mergeTime = performance.now() - mergeStart;
+
+      const collisions = consolidated.collisions || [];
+      const dupCount = raw.length - consolidated.length;
+      let mergeProof = "";
+      if (dupCount > 0 && collisions.length > 0) {
+        const dupSamples = [...new Set(collisions.map(c => `'${c.original.length > 20 ? c.original.substring(0, 17) + "..." : c.original}'`))].slice(0, 3);
+        mergeProof = ` (${dupCount} doublon(s) fusionné(s) sur : ${dupSamples.join(', ')})`;
+      } else {
+        mergeProof = ` (0 conflit/chevauchement détecté)`;
+      }
 
       auditEvents.push({
         eventId: `EVT_MRG_${Date.now()}_5`,
@@ -1624,7 +1665,7 @@
         action: 'MERGE',
         status: 'success',
         durationMs: Math.round(mergeTime),
-        reason: `Résolution des chevauchements: ${raw.length} détection(s) brute(s) consolidée(s) en ${consolidated.length} entité(s) distincte(s)`
+        reason: `Résolution des chevauchements : ${raw.length} détection(s) brute(s) consolidée(s) en ${consolidated.length} entité(s) distincte(s)${mergeProof}`
       });
 
       // Attribution des pseudonymes cohérents
@@ -1717,6 +1758,17 @@
       const totalTime = Math.round(performance.now() - pipelineStart);
 
       // Event Pseudonymisation
+      const identityProof = mapping.slice(0, 3).map(m => {
+        const origShort = m.original.length > 18 ? m.original.substring(0, 15) + "..." : m.original;
+        return `'${origShort}' ➔ ${m.pseudonym}`;
+      }).join(', ');
+      const remainingIdentities = mapping.length - 3;
+      const identitySuffix = remainingIdentities > 0 ? ` (+${remainingIdentities} autre${remainingIdentities > 1 ? 's' : ''})` : '';
+
+      const residualProof = residualLeaks.length > 0
+        ? `⚠️ ${residualLeaks.length} résidu détecté sur : ${residualLeaks.slice(0, 2).map(r => `'${r}'`).join(', ')}`
+        : `✅ 0 fuite résiduelle certifiée`;
+
       auditEvents.push({
         eventId: `EVT_PSD_${Date.now()}_6`,
         timestamp: new Date().toISOString(),
@@ -1725,7 +1777,7 @@
         action: 'PSEUDONYMIZE',
         status: 'success',
         durationMs: totalTime,
-        reason: `Pseudonymisation finalisée avec préservation UTF-16 (${mapping.length} identités, ${residualLeaks.length} résidu détecté)`
+        reason: `Pseudonymisation finalisée avec préservation UTF-16 : ${mapping.length} identités uniques créées (ex: ${identityProof}${identitySuffix}). Contrôle de sécurité : ${residualProof}`
       });
 
       const docRecord = {
