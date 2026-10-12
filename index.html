@@ -1217,7 +1217,10 @@
       <div class="flex-1 overflow-auto bg-slate-950 p-4 rounded-xl border border-slate-800">
         <pre id="raw-preview-content" class="text-xs font-mono text-slate-300 whitespace-pre-wrap leading-relaxed"></pre>
       </div>
-      <div class="pt-3 border-t border-slate-800 flex justify-end">
+      <div class="pt-3 border-t border-slate-800 flex justify-end gap-2">
+        <button onclick="copyRawPreviewText()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition-colors">
+          <i class="fa-solid fa-copy"></i> Copier le texte
+        </button>
         <button onclick="closeRawTextModal()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs px-4 py-2 rounded-lg font-semibold">
           Fermer
         </button>
@@ -1641,17 +1644,12 @@
       } else {
         try {
           extractedText = await file.text();
-          const demoCanvas = createDemoDocumentCanvas(extractedText, file.name);
           pages = [{
             pageNum: 1,
             text: extractedText,
-            charCount: extractedText.length,
-            canvasDataUrl: demoCanvas.dataUrl,
-            width: demoCanvas.width,
-            height: demoCanvas.height,
-            textItems: demoCanvas.textItems
+            charCount: extractedText.length
           }];
-          hasVisualPages = true;
+          hasVisualPages = false;
         } catch (e) {
           extractedText = "Erreur lors de la lecture du fichier texte.";
         }
@@ -1671,7 +1669,7 @@
         sha256: sha256
       };
 
-      executeOrchestratorPipeline();
+      openConfigModal();
     }
 
     function handleManualTextSubmit() {
@@ -1681,7 +1679,6 @@
         return;
       }
       const timeStr = new Date().toLocaleTimeString().replace(/:/g, '');
-      const demoCanvas = createDemoDocumentCanvas(val, `Extrait de Document (${timeStr})`);
       appState.pendingDoc = {
         name: `Extrait_Texte_${timeStr}.txt`,
         sizeKb: Math.round(val.length / 1024) || 1,
@@ -1689,19 +1686,15 @@
         pages: [{
           pageNum: 1,
           text: val,
-          charCount: val.length,
-          canvasDataUrl: demoCanvas.dataUrl,
-          width: demoCanvas.width,
-          height: demoCanvas.height,
-          textItems: demoCanvas.textItems
+          charCount: val.length
         }],
         totalPages: 1,
         totalChars: val.length,
         isOcrFallback: false,
-        hasVisualPages: true,
+        hasVisualPages: false,
         sha256: 'sha256_manual_' + Date.now()
       };
-      executeOrchestratorPipeline();
+      openConfigModal();
     }
 
     const DEMO_CONTRACTS = {
@@ -1732,7 +1725,7 @@
         hasVisualPages: true,
         sha256: 'sha256_demo_' + key
       };
-      executeOrchestratorPipeline();
+      openConfigModal();
     }
 
     // --- MODAL DE CONFIGURATION ---
@@ -1956,6 +1949,46 @@
       'habite', 'habites', 'demeure', 'signer', 'contrat', 'document', 'lettre', 'accord', 'aux', 'au', 'à', 'a'
     ]);
 
+    // Dictionnaire d'exclusion : Villes, pays, mots courants et entités non-personnes
+    const EXCLUDED_NER_WORDS = new Set([
+      'paris', 'lyon', 'marseille', 'toulouse', 'nice', 'nantes', 'strasbourg', 'montpellier', 'bordeaux', 'lille', 'rennes',
+      'france', 'belgique', 'suisse', 'europe',
+      'l\'épi', 'épi', 'l\'epi', 'epi', 'or', 'd\'or',
+      'apple', 'google', 'microsoft', 'amazon',
+      'boulangerie', 'pharmacie', 'café', 'restaurant', 'hôtel', 'banque',
+      'rue', 'rues', 'avenue', 'boulevard', 'place', 'chemin', 'route', 'impasse', 'allée', 'quai',
+      'pomme', 'pain', 'dossier', 'contrat', 'document', 'lettre', 'accord',
+      'ville', 'commune', 'département', 'région', 'pays'
+    ]);
+
+    // Prépositions et marqueurs spatiaux (ex: "à Paris", "rue de la Pierre", "située rue de")
+    const SPATIAL_PREFIX_RE = /(?:^|[\s,;])(?:[àa]|en|dans|vers|sur|(?:rue|rues|avenue|av\.?|boulevard|bd\.?|all[ée]e|place|chemin|impasse|quai|cours|route|square|voie|ruelle|passage)(?:\s+(?:des\s+|du\s+|de\s+la\s+|de\s+|d['’]))?|(?:ville|commune|d[ée]partement|r[ée]gion|pays)\s+(?:de\s+|d['’])?|(?:situ[ée]e?|sise?)\s+(?:[àa]|en|dans)\s+)\s*$/i;
+
+    // Nettoyage strict des frontières de mots (Tokenization : suppression apostrophes, " s'", ponctuation)
+    function cleanEntityBoundary(rawStr, matchStart) {
+      let str = rawStr;
+      let start = matchStart;
+
+      const lead = str.match(/^\s+/);
+      if (lead) {
+        start += lead[0].length;
+        str = str.substring(lead[0].length);
+      }
+
+      // Éliminer strictement les pronoms élidés ou liaisons attachés en fin de mot (ex: " s'", " d'", " l'", " s")
+      str = str.replace(/\s+[sSdcjnlmt]['’].*$/i, '');
+      str = str.replace(/\s+[sS]['’]?$/i, '');
+      str = str.replace(/['’][sS]$/i, '');
+
+      // Exclure strictement les apostrophes, guillemets et ponctuations finales
+      str = str.replace(/['’`",;:.\?!–—\-\)\(\]\[\}\{\/\\]+$/g, '');
+      str = str.replace(/^['’`",;:.\?!–—\-\)\(\]\[\}\{\/\\]+/g, '');
+
+      str = str.trim();
+      const end = start + str.length;
+      return { str, start, end };
+    }
+
     // Moteur GLiNER : Heuristiques contextuelles linguistiques et prédicats d'entités
     const GLiNER = {
       detect(text, cats) {
@@ -1972,45 +2005,52 @@
             const words = raw.split(/\s+/);
             const validWords = [];
             for (const w of words) {
-              if (FRENCH_STOP_WORDS.has(w.toLowerCase())) break;
+              const wClean = w.replace(/['’].*$/, '').toLowerCase();
+              if (FRENCH_STOP_WORDS.has(wClean) || EXCLUDED_NER_WORDS.has(wClean)) break;
               validWords.push(w);
               if (validWords.length >= 3) break;
             }
             if (validWords.length > 0) {
-              const personName = validWords.join(' ');
-              const offset = m[0].indexOf(personName);
-              const st = m.index + offset;
-              res.push({
-                id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: st, end: st + personName.length,
-                original: personName, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'validated',
-                validation: 'contextual_identity_predicate', confidence: 0.96,
-                reason: "Entité PERSONNE identifiée par prédicat d'expression personnelle (tolérance orthographique)"
-              });
+              const joined = validWords.join(' ');
+              const rawOffset = m[0].lastIndexOf(joined);
+              const cleaned = cleanEntityBoundary(joined, m.index + (rawOffset >= 0 ? rawOffset : m[0].indexOf(joined)));
+              if (cleaned.str && cleaned.str.length >= 2 && !EXCLUDED_NER_WORDS.has(cleaned.str.toLowerCase())) {
+                res.push({
+                  id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: cleaned.start, end: cleaned.end,
+                  original: cleaned.str, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'validated',
+                  validation: 'contextual_identity_predicate', confidence: 0.96,
+                  reason: "Entité PERSONNE identifiée par prédicat d'expression personnelle (tolérance orthographique)"
+                });
+              }
             }
           }
 
-          // 2. Titres de civilité & Honorifiques
-          const civilRe = /(?:M\.|Mme|Mlle|Monsieur|Madame|Mademoiselle|Me|Ma[îi]tre|Dr\.?|Docteur|Professeur|Pr\.?)\s+([a-zA-ZÀ-ÿ]+(?:\s+[a-zA-ZÀ-ÿ]+)*)/gi;
+          // 2. Titres de civilité & Honorifiques (Contexte positif fort pour PERSON)
+          const civilRe = /(?:M\.|Mme|Mlle|Monsieur|Madame|Mademoiselle|Me|Ma[îi]tre|Dr\.?|Docteur|Professeur|Pr\.?)\s+([A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-ßa-zà-öø-ÿ]+)*|[a-zA-ZÀ-ÿ]+)/gi;
           while ((m = civilRe.exec(text)) !== null) {
             const raw = m[1].trim();
             const words = raw.split(/\s+/);
             const validWords = [];
             for (const w of words) {
-              if (FRENCH_STOP_WORDS.has(w.toLowerCase())) break;
+              const wClean = w.replace(/['’].*$/, '').toLowerCase();
+              if (FRENCH_STOP_WORDS.has(wClean) || EXCLUDED_NER_WORDS.has(wClean)) break;
+              if (/^[sSdcjnlmt]['’]/i.test(w) || w.toLowerCase() === 's') break;
               validWords.push(w);
               if (validWords.length >= 3) break;
             }
             if (validWords.length > 0) {
-              const personName = validWords.join(' ');
-              const offset = m[0].indexOf(personName);
-              const st = m.index + offset;
-              if (!res.some(d => (st >= d.start && st < d.end))) {
-                res.push({
-                  id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: st, end: st + personName.length,
-                  original: personName, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'validated',
-                  validation: 'civility_title', confidence: 0.98,
-                  reason: "Entité PERSONNE identifiée via titre de civilité ou honorifique"
-                });
+              const joined = validWords.join(' ');
+              const rawOffset = m[0].lastIndexOf(joined);
+              const cleaned = cleanEntityBoundary(joined, m.index + (rawOffset >= 0 ? rawOffset : m[0].indexOf(joined)));
+              if (cleaned.str && cleaned.str.length >= 2 && !EXCLUDED_NER_WORDS.has(cleaned.str.toLowerCase())) {
+                if (!res.some(d => (cleaned.start >= d.start && cleaned.start < d.end))) {
+                  res.push({
+                    id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: cleaned.start, end: cleaned.end,
+                    original: cleaned.str, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'validated',
+                    validation: 'civility_title', confidence: 0.99,
+                    reason: "Entité PERSONNE identifiée via titre de civilité ou honorifique (contexte positif fort)"
+                  });
+                }
               }
             }
           }
@@ -2018,49 +2058,72 @@
           // 3. Rôles contractuels
           const roleRe = /(?:sign[ée]\s+par|repr[ée]sent[ée]\s+par|auditeur\s*:\s*|pour\s+le\s+compte\s+de\s+)\s+([A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]+(?:\s+[A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]+)*)/gi;
           while ((m = roleRe.exec(text)) !== null) {
-            const val = m[1];
-            const offset = m[0].indexOf(val);
-            const st = m.index + offset;
-            if (!res.some(d => (st >= d.start && st < d.end))) {
-              res.push({
-                id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: st, end: st + val.length,
-                original: val, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
-                validation: 'contractual_role', confidence: 0.95,
-                reason: "Entité PERSONNE identifiée via rôle contractuel explicite"
-              });
+            const raw = m[1];
+            const offset = m[0].indexOf(raw);
+            const cleaned = cleanEntityBoundary(raw, m.index + offset);
+            if (cleaned.str && !EXCLUDED_NER_WORDS.has(cleaned.str.toLowerCase())) {
+              if (!res.some(d => (cleaned.start >= d.start && cleaned.start < d.end))) {
+                res.push({
+                  id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: cleaned.start, end: cleaned.end,
+                  original: cleaned.str, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
+                  validation: 'contractual_role', confidence: 0.95,
+                  reason: "Entité PERSONNE identifiée via rôle contractuel explicite"
+                });
+              }
             }
           }
 
           // 4. Structure patronymique standard (Prénom NOM)
           const patroRe = /\b([A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]{2,}\s+[A-ZÀ-ÖØ-ß]{2,})\b/g;
           while ((m = patroRe.exec(text)) !== null) {
-            const val = m[1];
-            const st = m.index;
-            if (!res.some(d => (st >= d.start && st < d.end))) {
+            const raw = m[1];
+            const cleaned = cleanEntityBoundary(raw, m.index);
+            const prefix = text.substring(Math.max(0, cleaned.start - 35), cleaned.start);
+            
+            // Exclusion si précédé de contexte spatial ou si dans les mots exclus
+            if (SPATIAL_PREFIX_RE.test(prefix)) continue;
+            if (EXCLUDED_NER_WORDS.has(cleaned.str.toLowerCase())) continue;
+
+            if (!res.some(d => (cleaned.start >= d.start && cleaned.start < d.end))) {
               res.push({
-                id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: st, end: st + val.length,
-                original: val, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
+                id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: cleaned.start, end: cleaned.end,
+                original: cleaned.str, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
                 validation: 'patronymic_pattern', confidence: 0.88,
                 reason: "Entité PERSONNE identifiée via structure patronymique standard"
               });
             }
           }
 
-          // 5. Nomenclature des prénoms fréquents
-          const nameWordRe = /\b([a-zA-ZÀ-ÿ]{3,20})\b/g;
+          // 5. Référentiel anthroponymique (Prénoms fréquents sous contrôle contextuel strict)
+          const nameWordRe = /\b([A-ZÀ-ÖØ-ß][a-zà-öø-ÿ]{2,19}|[a-zà-öø-ÿ]{3,20})\b/g;
           while ((m = nameWordRe.exec(text)) !== null) {
             const w = m[1];
-            if (FIRST_NAMES_SET.has(w.toLowerCase())) {
+            const lower = w.toLowerCase();
+            if (FIRST_NAMES_SET.has(lower)) {
               const st = m.index;
               const en = st + w.length;
-              if (!res.some(d => (st >= d.start && st < d.end) || (en > d.start && en <= d.end))) {
-                res.push({
-                  id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: st, end: en,
-                  original: w, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
-                  validation: 'name_dictionary', confidence: 0.90,
-                  reason: "Prénom répertorié dans le référentiel anthroponymique"
-                });
-              }
+              const prefix = text.substring(Math.max(0, st - 35), st);
+
+              // A. Exclusion si dans les mots/villes exclus
+              if (EXCLUDED_NER_WORDS.has(lower)) continue;
+
+              // B. Exclusion stricte si précédé de prépositions spatiales (ex: "rue de la Pierre", "à Paris")
+              if (SPATIAL_PREFIX_RE.test(prefix)) continue;
+
+              // C. Exclusion si déjà couvert par une détection existante
+              if (res.some(d => (st >= d.start && st < d.end) || (en > d.start && en <= d.end))) continue;
+
+              // D. Si en minuscule sans prédicat personnel ("je m'appelle", etc.), ignorer pour éviter sur-détection
+              const isCapitalized = /^[A-ZÀ-ÖØ-ß]/.test(w);
+              const hasIdentityPredicate = /(?:je\s+(?:suis|m['’\s]?appelle?)|moi\s+c['’]est)\s*$/i.test(prefix);
+              if (!isCapitalized && !hasIdentityPredicate) continue;
+
+              res.push({
+                id: `GLINER_PERSON_${c++}`, category: 'PERSON', start: st, end: en,
+                original: w, engine: 'GLiNER', contributingEngines: ['GLiNER'], status: 'candidate',
+                validation: 'name_dictionary', confidence: 0.90,
+                reason: "Prénom répertorié dans le référentiel anthroponymique (contexte spatial exclu)"
+              });
             }
           }
         }
@@ -2617,10 +2680,16 @@
       } else if (appState.currentDoc) {
         const container = document.getElementById('viewer-content');
         if (container) {
-          if (mode === 'original') container.innerHTML = appState.currentDoc.annotatedOrig;
-          else if (mode === 'anon') container.innerHTML = appState.currentDoc.annotatedAnon;
-          else if (mode === 'bench') container.innerHTML = appState.currentDoc.annotatedBench;
-          else container.innerHTML = appState.currentDoc.annotatedMerged;
+          if (mode === 'original') {
+            container.innerHTML = `<pre class="text-xs font-mono text-slate-200 whitespace-pre-wrap leading-relaxed p-6 bg-slate-950 rounded-xl select-text border border-slate-800">${escapeHtml(appState.currentDoc.originalText)}</pre>`;
+          } else if (mode === 'anon') {
+            const inlineText = appState.currentDoc.cleanPseudonymizedText || appState.currentDoc.anonymizedText || '';
+            container.innerHTML = `<pre class="text-xs font-mono text-slate-100 whitespace-pre-wrap leading-relaxed p-6 bg-slate-950 rounded-xl select-text border border-emerald-500/30">${escapeHtml(inlineText)}</pre>`;
+          } else if (mode === 'bench') {
+            container.innerHTML = `<div class="p-6">${appState.currentDoc.annotatedBench}</div>`;
+          } else {
+            container.innerHTML = `<div class="p-6">${appState.currentDoc.annotatedMerged}</div>`;
+          }
         }
       }
     }
@@ -3110,9 +3179,18 @@
     // --- APERCU DU TEXTE BRUT EXTRAIT & EXPORTS DOCUMENTS ---
     function openRawTextModal() {
       if (!appState.currentDoc) return;
-      document.getElementById('raw-preview-title').innerHTML = `<i class="fa-solid fa-file-lines text-sky-400 mr-2"></i> Aperçu Brut : ${escapeHtml(appState.currentDoc.name)} (${appState.currentDoc.totalChars || appState.currentDoc.originalText.length} caractères)`;
-      document.getElementById('raw-preview-content').textContent = appState.currentDoc.originalText || "(Texte vide)";
+      const inlinePsd = appState.currentDoc.cleanPseudonymizedText || appState.currentDoc.anonymizedText || appState.currentDoc.originalText || "(Texte vide)";
+      document.getElementById('raw-preview-title').innerHTML = `<i class="fa-solid fa-file-shield text-emerald-400 mr-2"></i> Rendu Texte Brut Inline Strict : ${escapeHtml(appState.currentDoc.name)} (${inlinePsd.length} caractères)`;
+      document.getElementById('raw-preview-content').textContent = inlinePsd;
       document.getElementById('modal-raw-preview').classList.remove('hidden');
+    }
+
+    function copyRawPreviewText() {
+      if (!appState.currentDoc) return;
+      const textToCopy = appState.currentDoc.cleanPseudonymizedText || appState.currentDoc.anonymizedText || "";
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        alert("Texte pseudonymisé copié dans le presse-papier !");
+      });
     }
 
     function closeRawTextModal() {
